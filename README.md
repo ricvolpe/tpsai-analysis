@@ -6,7 +6,10 @@ Analysis code and reports for the development and validation of the Trust in Psy
 
 | Report | Survey | Description |
 |--------|--------|-------------|
-| [Expert Evaluation]([Survey](https://ricvolpe.github.io/tpsai-analysis/docs/survey.pdf)) | [Survey]([Survey](https://ricvolpe.github.io/tpsai-analysis/surveys/TPSai_-_Experts.pdf) | Expert evaluation of item pool via inter-rater agreement |
+| [Expert Evaluation](https://ricvolpe.github.io/tpsai-analysis/expert-evaluation.html) | [Survey](https://ricvolpe.github.io/tpsai-analysis/surveys/TPSai_-_Experts.pdf) | Expert evaluation of item pool via inter-rater agreement |
+
+
+
 
 ## Reproducing the Analysis
 
