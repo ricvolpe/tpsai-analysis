@@ -6,7 +6,8 @@ Analysis code and reports for the development and validation of the Trust in Psy
 
 | Report | Survey | Description |
 |--------|--------|-------------|
-| <a href="https://ricvolpe.github.io/tpsai-analysis/expert-evaluation.html" target="_blank">Expert Evaluation</a> | <a href="https://uofg.qualtrics.com/jfe/form/SV_8oVnVvWYhIxht7E" target="_blank">Survey</a> | Expert evaluation of item pool via inter-rater agreement |
+| [Expert Evaluation](https://ricvolpe.github.io/tpsai-analysis/expert-evaluation.html) | [Survey](https://uofg.qualtrics.com/jfe/form/SV_8oVnVvWYhIxht7E) | Expert evaluation of item pool via inter-rater agreement |
+
 ## Reproducing the Analysis
 
 1. Clone the repo
