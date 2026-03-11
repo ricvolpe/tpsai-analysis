@@ -53,3 +53,4 @@ rsconnect/
 
 # R quarto files folders
 *_files/
+.DS_Store
