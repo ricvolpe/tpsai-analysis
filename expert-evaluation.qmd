@@ -1,0 +1,115 @@
+---
+title: "Pilot Evaluation"
+author: "Riccardo Volpato"
+format: html
+editor: visual
+bibliography: references.bib
+execute:
+  message: false
+  warning: false
+---
+
+# TPSai: Expert evaluation
+
+## Data Processing
+
+```{r}
+library(tidyverse)
+library(gtools)
+library(psych)
+library(irr)
+library(knitr)
+
+set.seed(8675309) # makes sure random numbers are reproducible
+```
+
+```{r}
+# read Qualtrics data without metadata rows
+file_path <- "data/pilot/TPSai+-+Experts_11+March+2026_12.08.csv"
+raw_data <- read_csv(file_path, n_max = 2)
+colnames <- names(raw_data)
+raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
+```
+
+```{r}
+# define variables for questions and answers
+cols_trust    <- paste0("TR_", 1:23)
+cols_distrust <- paste0("DT_", 1:13)
+cols_company  <- paste0("CD_", 1:7)
+cols_tpsai <- c(cols_trust, cols_distrust, cols_company)
+choices <- c("Keep" = 1, "Drop" = 2, "Reword" = 3)
+```
+
+```{r}
+# generate random data for code development before data collection
+random_data <- as.data.frame(
+  lapply(cols_tpsai, function(col) {
+    sample(names(choices), size=5, replace=TRUE)
+  })
+)
+colnames(random_data) <- cols_tpsai
+```
+
+```{r}
+analysis_data <- random_data # switch to raw_data after data collection
+
+experts_data <- analysis_data %>%
+  select(all_of(cols_tpsai))  %>%
+  mutate(across(all_of(cols_tpsai), ~ choices[.x]))
+```
+
+## Experts Evaluation: Inter-Rater Agreement
+
+```{r}
+ratings_matrix <- experts_data %>%
+  select(all_of(cols_tpsai)) %>%
+  mutate(across(everything(), as.integer)) %>%
+  as.matrix()
+
+overall_alpha <- kripp.alpha(ratings_matrix, method = "nominal")
+overall_alpha
+
+interpret_alpha <- case_when(
+  overall_alpha$value < 0.20 ~ "Slight agreement",
+  overall_alpha$value < 0.40 ~ "Fair agreement",
+  overall_alpha$value < 0.60 ~ "Moderate agreement",
+  overall_alpha$value < 0.80 ~ "Substantial agreement",
+  TRUE                        ~ "Almost perfect agreement"
+)
+
+cat("Krippendorff's alpha =", round(overall_alpha$value, 3), "-", interpret_alpha)
+```
+
+Expert judges evaluated each item and voted to Keep, Drop, or Reword it. The majority vote determined the final recommendation for each item. When two options tied, the following rules resolved the decision.
+
+1.  Keep and Reword ties favoured Reword on the basis that any doubt about an item warrants revision rather than acceptance.
+2.  Drop and Reword ties favoured Drop on the basis that if an item is difficult enough to reword that experts are split, it is better removed.
+3.  Keep and Drop ties favoured Keep, giving the item the benefit of the doubt for further evaluation in subsequent validation stages.
+
+```{r}
+decisions <- experts_data %>%
+  pivot_longer(cols = all_of(cols_tpsai), names_to = "item", values_to = "rating") %>%
+  mutate(rating = names(choices)[rating]) %>%
+  group_by(item) %>%
+  summarise(
+    n_keep    = sum(rating == "Keep"),
+    n_drop    = sum(rating == "Drop"),
+    n_reword  = sum(rating == "Reword"),
+    pct_agree = round(max(table(rating)) / n(), 2),
+    .groups   = "drop"
+  ) %>%
+  mutate(
+    decision = case_when(
+      n_reword > n_keep  & n_reword > n_drop  ~ "Reword",
+      n_drop   > n_keep  & n_drop   > n_reword ~ "Drop",
+      n_keep   > n_drop  & n_keep   > n_reword ~ "Keep",
+      n_keep == n_reword & n_keep > n_drop    ~ "Reword",
+      n_drop == n_reword & n_drop > n_keep    ~ "Drop",
+      n_keep == n_drop  & n_keep > n_reword   ~ "Keep"
+    ),
+    item = factor(item, levels = cols_tpsai)
+  ) %>%
+  arrange(item)
+
+kable(decisions, col.names = c("Item", "Keep", "Drop", "Reword", "% Agreement", "Decision"))
+```

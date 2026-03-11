@@ -10,18 +10,13 @@ bibliography: references.bib
 
 ## Data Processing
 
-First, let's load the required packages
-
 ```{r}
-# packages needed
 library(tidyverse)
 library(gtools)
 library(psych)
 
 set.seed(8675309) # makes sure random numbers are reproducible
 ```
-
-Then, read and process the data downloaded from Qualtrics.
 
 ```{r}
 
