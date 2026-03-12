@@ -1,0 +1,153 @@
+---
+title: "Pilot Evaluation"
+author: "Riccardo Volpato"
+format:
+  html:
+    embed-resources: true
+editor: visual
+bibliography: references.bib
+execute:
+  message: false
+  warning: false
+---
+
+# TPSai: Item Reduction
+
+## Data Processing
+
+```{r}
+library(tidyverse)
+library(gtools)
+library(psych)
+library(faux)
+library(knitr)
+
+set.seed(8675309) # makes sure random numbers are reproducible
+```
+
+```{r}
+# read Qualtrics data without metadata rows
+file_path <- "data/pilot/TPSai_11+March+2026_12.01.csv"
+raw_data <- read_csv(file_path, n_max = 2)
+colnames <- names(raw_data)
+raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
+```
+
+```{r}
+# define variables for questions and answers
+cols_trust    <- paste0("TR_", 1:23)
+cols_distrust <- paste0("DT_", 1:13)
+cols_company  <- paste0("CD_", 1:7)
+cols_tpsai <- c(cols_trust, cols_distrust, cols_company)
+
+likert_levels <- c(
+  "Strongly disagree" = 1,
+  "Disagree" = 2,
+  "Neither agree nor disagree" = 3,
+  "Agree" = 4,
+  "Strongly agree" = 5,
+  "Don't know" = NA
+)
+```
+
+```{r}
+# generate random data for code development before data collection
+random_data <- as.data.frame(
+  lapply(cols_tpsai, function(col) {
+    sample(names(likert_levels), size=100, replace=TRUE)
+  })
+)
+colnames(random_data) <- cols_tpsai
+```
+
+```{r}
+analysis_data <- random_data # switch to raw_data after data collection
+
+items_data <- analysis_data %>%
+  select(all_of(cols_tpsai))  %>%
+  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x])) %>%
+  # simulate one column with >.3 missingness
+  faux::messy(prop = .4, "TR_1") %>%
+  # make a high correlation between DISTRUST_1 and _2
+  mutate(DT_2 = DT_1 + sample(-1:1, n(), replace = TRUE),
+         DT_2 = case_match(DT_2, 0 ~ 1, 6 ~ 5, .default = DT_2))
+```
+
+## Item Evaluation
+
+### High missingness
+
+High missingness items, where many people respond "*Don't know"*, likely capture constructs that participants are uncertain about and can reduce the effective sample size and bias item statistics like means and correlations. Given that we have a substantial number of survey itemsremoving high missingness items is a way of shortening our survey by focusing on constructs that people have clearer ideas about.
+
+We decided to drop items exceeding 30% missing responses. Our rationale is that if at least 3 out of 10 individuals were not able to meaningfully engage with an item, dropping it simplifies our scale and allows it to focus on measuring items with generally clearer responses. 30% is a relatively moderate threshold for removal of items with high missingness, which might avoid premature dropping of items with moderate missingness may still yield interpretable results.
+
+However, beyond just dropping items with at least 30% missingness, we want to inspect the distribution of missing answers per item, grouped by sub-scale. When visually inspecting this distribution we will look for discontinuities, meaning items with a substantially higher proportion of "Don't know" than other items in the same sub-scale. We may remove such items even if below our pre-set missingness threshold.
+
+```{r}
+missing_threshold <- 0.3
+
+missing_items <- items_data %>%
+  summarise(
+    across(all_of(cols_tpsai), ~ mean(is.na(.x)), .names = "{.col}_missing")
+  ) %>%
+  pivot_longer(
+    everything(),
+    names_to  = c("item", ".value"),
+    names_sep = "_(?=[^_]+$)"
+  ) %>%
+  separate(item, c("scale", "q_n"), sep = "_", remove = FALSE)
+
+ggplot(missing_items, aes(x = missing, fill = scale)) +
+  geom_histogram(binwidth = 0.01) +
+  geom_vline(xintercept = missing_threshold)
+```
+
+```{r}
+missing_items %>%
+  filter(missing > missing_threshold) %>%  # add in other criteria from visual inspection
+  select(item, missing) %>%
+  knitr::kable(digits = 2)
+```
+
+### Inter-item correlations
+
+Next, we examine pairwise Polychoric inter-item correlations within each TPSai sub-scale (Trust, Distrust, and AI Company) to identify redundant items. Polychoric correlations are used as they are more appropriate for ordinal Likert-scale data than Pearson correlations @boateng2018. Items correlating above .80 with another item within the same sub-scale are considered redundant, as this indicates the two items share more than 64% of their variance (*r*² = .64), leaving little unique contribution to the scale.
+
+As per our missingness check, we will also visually inspect inter-item correlations for any discontinuity in distribution across sub-scales, potentially identifying items worth merging even if correlated under our pre-set threshold.
+
+```{r}
+ii_cor_threshold <- 0.8
+
+ii_cor_data <- list(
+  Trust = cols_trust,
+  Distrust = cols_distrust,
+  Company = cols_company
+) %>%
+  map_dfr(~ {
+    items_data %>%
+      select(all_of(.x)) %>%
+      polychoric() %>%
+      .$rho %>%
+      as.data.frame() %>%
+      rownames_to_column("item1") %>%
+      pivot_longer(-item1, names_to = "item2", values_to = "r")
+  }, .id = "subscale") %>%
+  filter(r > -1 & r < 1) %>%
+  filter(item1 < item2)
+
+ii_cor_data %>%
+  ggplot(aes(x = r, fill= subscale)) +
+  facet_wrap(~subscale, ncol = 1, scales = "free_y") +
+  geom_histogram(binwidth = 0.01) +
+  geom_vline(xintercept = ii_cor_threshold) +
+  geom_vline(xintercept = -ii_cor_threshold) +
+  scale_x_continuous(breaks = seq(-1, 1, .2)) +
+  coord_cartesian(xlim = c(-1, 1))
+```
+
+```{r}
+ii_cor_data %>%
+  filter(r > ii_cor_threshold) %>%
+  select(subscale, item1, item2, r) %>% # add in other criteria from visual inspection
+  knitr::kable(digits = 2)
+```
