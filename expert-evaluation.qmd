@@ -4,6 +4,7 @@ author: "Riccardo Volpato"
 format:
   html:
     embed-resources: true
+    toc: true
 editor: visual
 bibliography: references.bib
 execute:
@@ -60,7 +61,7 @@ experts_data <- analysis_data %>%
   mutate(across(all_of(cols_tpsai), ~ choices[.x]))
 ```
 
-## Experts Evaluation: Inter-Rater Agreement
+## Inter-Rater Agreement
 
 ```{r}
 ratings_matrix <- experts_data %>%

@@ -4,6 +4,7 @@ author: "Riccardo Volpato"
 format:
   html:
     embed-resources: true
+    toc: true
 editor: visual
 bibliography: references.bib
 execute:
