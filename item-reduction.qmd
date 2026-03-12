@@ -109,7 +109,7 @@ missing_items %>%
   knitr::kable(digits = 2)
 ```
 
-### Inter-item correlations
+### Inter-item Correlations
 
 Next, we examine pairwise Polychoric inter-item correlations within each TPSai sub-scale (Trust, Distrust, and AI Company) to identify redundant items. Polychoric correlations are used as they are more appropriate for ordinal Likert-scale data than Pearson correlations @boateng2018. Items correlating above .80 with another item within the same sub-scale are considered redundant, as this indicates the two items share more than 64% of their variance (*r*² = .64), leaving little unique contribution to the scale.
 
@@ -147,7 +147,47 @@ ii_cor_data %>%
 
 ```{r}
 ii_cor_data %>%
-  filter(r > ii_cor_threshold) %>%
+  filter(abs(r) > ii_cor_threshold) %>%
   select(subscale, item1, item2, r) %>% # add in other criteria from visual inspection
+  knitr::kable(digits = 2)
+```
+
+### Item-Total Correlations
+
+For each item, we compute the *adjusted item-total correlation*, the correlation between that item and the sum of all other items in the same sub-scale, excluding itself. Items with an adjusted item-total correlation below .30 are flagged for potential removal, as they contribute little to what the sub-scale is measuring overall \@boateng2018.
+
+As with previous checks, we will also visually inspect the distribution of item-total correlations within each sub-scale, looking for discontinuities that may identify items worth removing even if they fall above our pre-set threshold. Particular attention will be paid to any negatively correlating items, which would suggest an item is moving in the opposite direction to the rest of its sub-scale — a strong signal of potential issues with wording or construct alignment.
+
+```{r}
+it_cor_threshold <- 0.3
+
+it_cor_data <- list(
+  Trust    = cols_trust,
+  Distrust = cols_distrust,
+  Company  = cols_company
+) %>%
+  map_dfr(~ {
+    items_data %>%
+      select(all_of(.x)) %>%
+      alpha() %>%
+      .$item.stats %>%
+      rownames_to_column("item") %>%
+      select(item, r = r.drop)
+  }, .id = "subscale")
+
+it_cor_data %>%
+  ggplot(aes(x = r, fill= subscale)) +
+  facet_wrap(~subscale, ncol = 1, scales = "free_y") +
+  geom_histogram(binwidth = 0.05) +
+  geom_vline(xintercept = it_cor_threshold) +
+  geom_vline(xintercept = -it_cor_threshold) +
+  scale_x_continuous(breaks = seq(-1, 1, .2)) +
+  coord_cartesian(xlim = c(-1, 1))
+```
+
+```{r}
+it_cor_data %>%
+  filter(abs(r) > it_cor_threshold) %>%
+  select(item, r) %>% # add in other criteria from visual inspection
   knitr::kable(digits = 2)
 ```
