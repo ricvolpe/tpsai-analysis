@@ -1,0 +1,92 @@
+---
+title: "Pilot Evaluation"
+author: "Riccardo Volpato"
+format:
+  html:
+    embed-resources: true
+    toc: true
+editor: visual
+bibliography: references.bib
+execute:
+  message: false
+  warning: false
+---
+
+# TPSai: Factor Analysis
+
+## Data Processing
+
+```{r}
+library(tidyverse)
+library(gtools)
+library(psych)
+library(faux)
+library(knitr)
+
+set.seed(8675309) # makes sure random numbers are reproducible
+```
+
+```{r}
+# read Qualtrics data without metadata rows
+file_path <- "data/pilot/TPSai_13+March+2026_10.16.csv"
+raw_data <- read_csv(file_path, n_max = 2)
+colnames <- names(raw_data)
+raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
+```
+
+```{r}
+# define variables for questions and answers
+cols_trust    <- paste0("TR_", 1:23)
+cols_distrust <- paste0("DT_", 1:13)
+cols_company  <- paste0("CD_", 1:7)
+cols_tpsai <- c(cols_trust, cols_distrust, cols_company)
+
+likert_levels <- c(
+  "Strongly disagree" = 1,
+  "Disagree" = 2,
+  "Neither agree nor disagree" = 3,
+  "Agree" = 4,
+  "Strongly agree" = 5,
+  "Don't know" = NA
+)
+```
+
+```{r}
+factors_data <- raw_data %>%
+  select(all_of(cols_tpsai))  %>%
+  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x]))
+```
+
+## Correlation Matrix
+
+```{r}
+cor_matrix <- cor(factors_data, use = "pairwise.complete.obs")
+```
+
+```{r}
+psych::cor.plot(cor_matrix, numbers = FALSE, cex = 0.5)
+```
+
+```{r}
+knitr::kable(round(cor_matrix, 2))
+```
+
+```{r}
+write.csv(round(cor_matrix, 2), "data/pilot/sample_correlation_matrix.csv")
+```
+
+## Sub-scales correlation
+
+```{r}
+subscales <- factors_data %>%
+  mutate(
+    trust    = rowMeans(pick(all_of(cols_trust)),    na.rm = TRUE),
+    distrust = rowMeans(pick(all_of(cols_distrust)), na.rm = TRUE),
+    company  = rowMeans(pick(all_of(cols_company)),  na.rm = TRUE)
+  ) %>%
+  select(trust, distrust, company)
+
+
+cor_subscales <- cor(subscales, use = "pairwise.complete.obs")
+psych::cor.plot(cor_subscales, numbers = TRUE, cex = 0.75)
+```
