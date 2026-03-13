@@ -64,11 +64,11 @@ cor_matrix <- cor(factors_data, use = "pairwise.complete.obs")
 ```
 
 ```{r}
-psych::cor.plot(cor_matrix, numbers = FALSE, cex = 0.5)
+cor.plot(cor_matrix, numbers = FALSE, cex = 0.5)
 ```
 
 ```{r}
-knitr::kable(round(cor_matrix, 2))
+kable(round(cor_matrix, 2))
 ```
 
 ```{r}
@@ -80,13 +80,19 @@ write.csv(round(cor_matrix, 2), "data/pilot/sample_correlation_matrix.csv")
 ```{r}
 subscales <- factors_data %>%
   mutate(
-    trust    = rowMeans(pick(all_of(cols_trust)),    na.rm = TRUE),
-    distrust = rowMeans(pick(all_of(cols_distrust)), na.rm = TRUE),
-    company  = rowMeans(pick(all_of(cols_company)),  na.rm = TRUE)
+    Trust    = rowMeans(pick(all_of(cols_trust)),    na.rm = TRUE),
+    Distrust = rowMeans(pick(all_of(cols_distrust)), na.rm = TRUE),
+    "Corporate Distrust"  = rowMeans(pick(all_of(cols_company)),  na.rm = TRUE)
   ) %>%
-  select(trust, distrust, company)
+  select(Trust, Distrust, "Corporate Distrust")
 
 
 cor_subscales <- cor(subscales, use = "pairwise.complete.obs")
-psych::cor.plot(cor_subscales, numbers = TRUE, cex = 0.75)
+
+cor_subscales %>% 
+  as.data.frame() %>% 
+  rownames_to_column("S1") %>% 
+  pivot_longer(-S1, names_to = "S2", values_to = "r") %>% 
+  filter(S1 < S2) %>% 
+  kable(digits = 2)
 ```
