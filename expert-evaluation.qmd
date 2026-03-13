@@ -1,5 +1,5 @@
 ---
-title: "Pilot Evaluation"
+title: "Expert Evaluation"
 author: "Riccardo Volpato"
 format:
   html:
@@ -12,9 +12,7 @@ execute:
   warning: false
 ---
 
-# TPSai: Expert evaluation
-
-## Data Processing
+# Data Processing
 
 ```{r}
 library(tidyverse)
@@ -61,7 +59,7 @@ experts_data <- analysis_data %>%
   mutate(across(all_of(cols_tpsai), ~ choices[.x]))
 ```
 
-## Inter-Rater Agreement
+# Inter-Rater Agreement
 
 ```{r}
 ratings_matrix <- experts_data %>%

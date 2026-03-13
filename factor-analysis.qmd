@@ -1,5 +1,5 @@
 ---
-title: "Pilot Evaluation"
+title: "Factor Analysis"
 author: "Riccardo Volpato"
 format:
   html:
@@ -12,9 +12,7 @@ execute:
   warning: false
 ---
 
-# TPSai: Factor Analysis
-
-## Data Processing
+# Data Processing
 
 ```{r}
 library(tidyverse)
@@ -56,6 +54,8 @@ factors_data <- raw_data %>%
   select(all_of(cols_tpsai))  %>%
   mutate(across(all_of(cols_tpsai), ~ likert_levels[.x]))
 ```
+
+# Correlations
 
 ## Correlation Matrix
 

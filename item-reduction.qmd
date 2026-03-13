@@ -1,5 +1,5 @@
 ---
-title: "Pilot Evaluation"
+title: "Item Reduction"
 author: "Riccardo Volpato"
 format:
   html:
@@ -12,9 +12,7 @@ execute:
   warning: false
 ---
 
-# TPSai: Item Reduction
-
-## Data Processing
+# Data Processing
 
 ```{r}
 library(tidyverse)
@@ -74,9 +72,9 @@ items_data <- analysis_data %>%
          DT_2 = case_match(DT_2, 0 ~ 1, 6 ~ 5, .default = DT_2))
 ```
 
-## Item Evaluation
+# Item Evaluation
 
-### High missingness
+## High missingness
 
 High missingness items, where many people respond "*Don't know"*, likely capture constructs that participants are uncertain about and can reduce the effective sample size and bias item statistics like means and correlations. Given that we have a substantial number of survey itemsremoving high missingness items is a way of shortening our survey by focusing on constructs that people have clearer ideas about.
 
@@ -110,7 +108,7 @@ missing_items %>%
   knitr::kable(digits = 2)
 ```
 
-### Inter-item Correlations
+## Inter-item Correlations
 
 Next, we examine pairwise Polychoric inter-item correlations within each TPSai sub-scale (Trust, Distrust, and AI Company) to identify redundant items. Polychoric correlations are used as they are more appropriate for ordinal Likert-scale data than Pearson correlations @boateng2018. Items correlating above .80 with another item within the same sub-scale are considered redundant, as this indicates the two items share more than 64% of their variance (*r*² = .64), leaving little unique contribution to the scale.
 
@@ -153,7 +151,7 @@ ii_cor_data %>%
   knitr::kable(digits = 2)
 ```
 
-### Item-Total Correlations
+## Item-Total Correlations
 
 For each item, we compute the *adjusted item-total correlation*, the correlation between that item and the sum of all other items in the same sub-scale, excluding itself. Items with an adjusted item-total correlation below .30 are flagged for potential removal, as they contribute little to what the sub-scale is measuring overall \@boateng2018.
 

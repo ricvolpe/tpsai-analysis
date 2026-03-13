@@ -7,4 +7,5 @@ Analysis code and reports for the development and validation of the Trust in Psy
 | Report | Survey | Description |
 |--------|--------|-------------|
 | [Expert Evaluation](https://ricvolpe.github.io/tpsai-analysis/expert-evaluation.html) | [Survey](https://ricvolpe.github.io/tpsai-analysis/surveys/TPSai_-_Experts.pdf) | Expert evaluation of item pool via inter-rater agreement |
-| [Item Reduction](https://ricvolpe.github.io/tpsai-analysis/item-reduction.html) |  | Identifying items to drop or merge through quantiative pilot |
+| [Item Reduction](https://ricvolpe.github.io/tpsai-analysis/item-reduction.html) |  | Identifying items to drop or merge through quantitative pilot |
+| [Factor Analysis](https://ricvolpe.github.io/tpsai-analysis/factor-analysis.html) |  | Exploratory and confirmatory factor analysis |
