@@ -29,6 +29,12 @@ set.seed(8675309) # makes sure random numbers are reproducible
 file_path <- "data/pilot/TPSai_13+March+2026_10.16.csv"
 raw_data <- read_csv(file_path, n_max = 2)
 colnames <- names(raw_data)
+
+# Row 2 of the file is the question text row (index 1 after skip)
+question_labels <- setNames(
+  sub(".* - ", "", as.character(raw_data[1, ])),
+  colnames
+)
 raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
 ```
 
@@ -47,6 +53,9 @@ likert_levels <- c(
   "Strongly agree" = 5,
   "Don't know" = NA
 )
+
+qid_label_map <- question_labels[cols_tpsai]
+qid_label_df <- tibble(id = names(qid_label_map), text = qid_label_map)
 ```
 
 ```{r}
