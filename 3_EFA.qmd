@@ -1,0 +1,272 @@
+---
+title: "Exploratory Factor Analysis (EFA)"
+author: "Riccardo Volpato"
+format:
+  html:
+    embed-resources: true
+    toc: true
+editor: visual
+bibliography: references.bib
+execute:
+  message: false
+  warning: false
+---
+
+# Data Processing
+
+```{r}
+library(tidyverse)
+library(gtools)
+library(psych)
+library(faux)
+library(knitr)
+
+set.seed(8675309) # makes sure random numbers are reproducible
+```
+
+```{r}
+# read Qualtrics data without metadata rows
+file_path <- "data/pilot/TPSai_13+March+2026_10.16.csv"
+raw_data <- read_csv(file_path, n_max = 2)
+colnames <- names(raw_data)
+
+# Row 2 of the file is the question text row (index 1 after skip)
+question_labels <- setNames(
+  sub(".* - ", "", as.character(raw_data[1, ])),
+  colnames
+)
+raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
+```
+
+```{r}
+# define variables for questions and answers
+cols_trust    <- paste0("TR_", 1:23)
+cols_distrust <- paste0("DT_", 1:13)
+cols_company  <- paste0("CD_", 1:7)
+cols_tpsai <- c(cols_trust, cols_distrust, cols_company)
+
+likert_levels <- c(
+  "Strongly disagree" = 1,
+  "Disagree" = 2,
+  "Neither agree nor disagree" = 3,
+  "Agree" = 4,
+  "Strongly agree" = 5,
+  "Don't know" = NA
+)
+
+qid_label_map <- question_labels[cols_tpsai]
+qid_label_df <- tibble(id = names(qid_label_map), text = qid_label_map)
+```
+
+```{r}
+# generate random data for code development before data collection
+random_data <- as.data.frame(
+  lapply(cols_tpsai, function(col) {
+    sample(names(likert_levels), size=100, replace=TRUE)
+  })
+)
+colnames(random_data) <- cols_tpsai
+```
+
+```{r}
+analysis_data <- random_data # switch to raw_data after data collection
+
+factors_data <- analysis_data %>%
+  select(all_of(cols_tpsai))  %>%
+  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x]))
+```
+
+# Descriptive Statistics
+
+We report means, standard deviations, skewness, and kurtosis for all retained items, grouped by subscale. These statistics provide a preliminary characterisation of the response distributions.
+
+```{r}
+item_descriptives <- function(data, item_cols, scale_name) {
+  d <- data %>% select(all_of(item_cols))
+
+  map_dfr(item_cols, ~ tibble(
+    subscale    = scale_name,
+    item        = .x,
+    M           = round(mean(d[[.x]], na.rm = TRUE), 2),
+    SD          = round(sd(d[[.x]],   na.rm = TRUE), 2),
+    skew        = round(psych::skew(d[[.x]],     na.rm = TRUE), 2),
+    kurt        = round(psych::kurtosi(d[[.x]],  na.rm = TRUE), 2),
+  ))
+}
+
+list(Trust = cols_trust, Distrust = cols_distrust, 
+     "Corporate Distrust" = cols_company) %>%
+  imap(~ item_descriptives(factors_data, .x, .y)) %>%
+  bind_rows() %>%
+  kable(
+    col.names  = c("Subscale", "Item", "M", "SD", "Skew", "Kurtosis"),
+    digits     = 2
+  )
+```
+
+## Correlation Matrix
+
+We inspect the full inter-item correlation matrix to assess the factorability of the data. Items should show moderate correlations with one another: too low and they share insufficient common variance to define a factor; too high and they may be redundant, though extreme pairs should already have been removed at the item reduction stage.
+
+```{r}
+cor_matrix <- cor(factors_data, use = "pairwise.complete.obs")
+```
+
+```{r}
+cor.plot(cor_matrix, numbers = FALSE, cex = 0.5)
+```
+
+```{r}
+kable(round(cor_matrix, 2))
+```
+
+```{r}
+write.csv(round(cor_matrix, 2), "data/pilot/sample_correlation_matrix.csv")
+```
+
+## Sub-scales correlation
+
+We report Spearman correlations between the three TPSai sub-scale mean scores (Trust, Distrust, and Corporate Distrust) to examine their inter-relationships prior to factor analysis. Spearman correlations are used as a rank-based, distribution-free alternative to Pearson, which is more appropriate for composite scores derived from ordinal Likert items [@boateng2018].
+
+We plan to conduct separate EFAs for each sub-scale rather than a single joint EFA across all items. This decision is driven by three considerations:
+
+1.  The theoretical independence of Trust and Distrust as related but distinct constructs warrants separate investigation[@mcknight2001; @scharowski24]
+2.  Corporate Distrust is conceptually distinct from both, as it targets an organisational entity rather than an AI system directly.
+3.  Combining all items in a single EFA would introduce a mixed-valence structure. Trust items are positively worded while Distrust and Corporate Distrust items are negatively worded, which risks producing factors driven by wording artefacts rather than substantive constructs [@zhang2016].
+
+If any two subscales correlate above .80, indicating substantial construct overlap, we will reconsider this decision and run a single joint EFA instead.
+
+```{r}
+subscales <- factors_data %>%
+  mutate(
+    Trust    = rowMeans(pick(all_of(cols_trust)),    na.rm = TRUE),
+    Distrust = rowMeans(pick(all_of(cols_distrust)), na.rm = TRUE),
+    "Corporate Distrust"  = rowMeans(pick(all_of(cols_company)),  na.rm = TRUE)
+  ) %>%
+  select(Trust, Distrust, "Corporate Distrust")
+
+
+cor_subscales <- cor(subscales, method = "spearman", use = "pairwise.complete.obs")
+
+cor_subscales %>% 
+  as.data.frame() %>% 
+  rownames_to_column("S1") %>% 
+  pivot_longer(-S1, names_to = "S2", values_to = "r") %>% 
+  filter(S1 < S2) %>% 
+  kable(digits = 2)
+```
+
+# Exploratory Factor Analysis
+
+Exploratory factor analysis (EFA) is a statistical technique for identifying hidden structure in a set of items. The core idea is simple: if many items correlate with each other, they are probably all measuring some common underlying thing, a latent factor.
+
+EFA works by finding the smallest number of latent factors that can reproduce the observed correlations among items. It does this by asking: if these factors exist, what pattern of correlations between items would they produce? The solution that best matches the actual observed correlations, leaving the smallest residuals, is retained.
+
+Because EFA makes no assumptions about which items belong to which factor, it is well suited to the early stages of scale development, where the goal is to let the data reveal the underlying structure rather than confirm a predetermined one.
+
+## Checks
+
+Before running the EFA, we check whether the data are suitable for factor analysis at all.
+
+The Kaiser-Meyer-Olkin (KMO) index asks whether the correlations among items are sufficiently compact and patterned to yield reliable factors. Values above .80 indicate good sampling adequacy and values above .90 are excellent. We treat KMO as our primary indicator of factorability.
+
+Bartlett's test of sphericity asks a simpler question: is the correlation matrix significantly different from an identity matrix, where all items would be completely uncorrelated? A significant result (p \< .05) confirms there is at least some correlation structure for factor analysis to work with. However, Bartlett's test is sensitive to sample size and tends to be significant even when correlations are trivially small, so we report it for completeness rather than as a primary decision criterion.
+
+Both tests are computed on the polychoric correlation matrix rather than the standard Pearson correlation matrix, as polychoric correlations are more appropriate for ordinal Likert data [@boateng2018]. A separate matrix is computed for each subscale, since we are conducting independent EFAs for Trust, Distrust, and Corporate Distrust rather than analysing all items together.
+
+```{r}
+factorability <- function(R, n) {
+  tibble(
+    kmo  = KMO(R)$MSA,
+    chi2 = cortest.bartlett(R, n)$chisq,
+    df   = cortest.bartlett(R, n)$df,
+    p    = cortest.bartlett(R, n)$p.value
+  )
+}
+
+R_trust    <- polychoric(factors_data %>% select(all_of(cols_trust)))$rho
+R_distrust <- polychoric(factors_data %>% select(all_of(cols_distrust)))$rho
+R_company  <- polychoric(factors_data %>% select(all_of(cols_company)))$rho
+
+bind_rows(
+  factorability(R_trust,    nrow(factors_data)),
+  factorability(R_distrust, nrow(factors_data)),
+  factorability(R_company,  nrow(factors_data))
+) %>%
+  mutate(subscale = c("Trust", "Distrust", "Corporate Distrust")) %>%
+  select(subscale, everything()) %>%
+  kable(digits = 3,
+        col.names = c("Subscale", "KMO", "χ²", "df", "p"))
+```
+
+## Factor Retention
+
+A key decision in EFA is how many factors to extract. Extracting too few factors leaves meaningful structure unexplained; extracting too many produces factors that are essentially fitting noise in the data.
+
+**Parallel analysis** addresses this by comparing each factor's eigenvalue from the real correlation matrix to the corresponding eigenvalue from random correlation matrices of the same dimensions.
+
+Each factor is associated with an *eigenvalue*. Mathematically, an eigenvalue summarises how much of the shared variance among items a factor captures. When EFA extracts a factor, it finds a weighted combination of items that explains as much of the common variance as possible, the eigenvalue is the sum of the squared factor loadings for that factor across all items. A large eigenvalue therefore means many items have high loadings on that factor. Eigenvalues are computed using MINRES estimation, which minimises the residual correlations between the observed and reproduced correlation matrices and makes no distributional assumptions.
+
+In parallel analysis, factors are ordered by their eigenvalues from largest to smallest, with the first eigenvalue belonging to the first factor, the one explaining the most variance of the real correlation matrix, the second to the second factor, and so on.
+
+For each factor in turn, if the eigenvalue from the real data exceeds the average eigenvalue from the random matrices, meaning the factor is accounting for more variance than a factor extracted from pure noise would, that factor is considered to reflect genuine underlying structure in the data and is worth retaining.
+
+The moment the real eigenvalue drops below the random one, which is also what the scree plot visualises, with the blue line (real data) dropping below the red line (random data), that factor and all subsequent ones are considered noise and discarded.
+
+```{r}
+fa_trust <- fa.parallel(R_trust,    n.obs = nrow(factors_data), 
+            fm = "minres", fa = "fa",
+            main = "Parallel Analysis — Trust")
+
+fa_distrust <- fa.parallel(R_distrust, n.obs = nrow(factors_data), 
+            fm = "minres", fa = "fa",
+            main = "Parallel Analysis — Distrust")
+
+fa_company <- fa.parallel(R_company,  n.obs = nrow(factors_data), 
+            fm = "minres", fa = "fa",
+            main = "Parallel Analysis — Corporate Distrust")
+```
+
+## Factor Extraction
+
+Once the number of factors is determined, we extract them using *MINRES* estimation with *oblimin* rotation.
+
+**MINRES** (minimum residual) estimation finds the factor solution that minimises the residuals, the differences between the observed correlation matrix and the one reproduced by the factor model. It makes no distributional assumptions, making it well suited to ordinal Likert data compared to maximum likelihood estimation, which assumes multivariate normality. It is the same method we used to compute eigenvalues and determine the number of factors.
+
+**Rotation** is applied after initial factor extraction to make the solution more interpretable. Without rotation, factors are mathematically defined but often difficult to interpret because most items load moderately onto most factors. Rotation redistributes the variance among factors to achieve a simpler, cleaner pattern where each item loads strongly onto one factor and weakly onto others [@buchanan2014].
+
+We use **oblimin**, which is an oblique rotation method meaning factors are allowed to correlate with one another. This is theoretically appropriate here because items within each subscale are expected to measure related but distinct aspects of the same broader construct:. An orthogonal rotation such as varimax would force factors to be uncorrelated, which is a stronger and less realistic assumption in psychological measurement [@boateng2018]. Importantly, if the factors turn out to be empirically uncorrelated, oblimin will recover the same solution as an orthogonal rotation, so nothing is lost by choosing oblique rotation.
+
+```{r}
+efa_trust    <- fa(R_trust,
+                   nfactors = fa_trust$nfact,
+                   n.obs = nrow(factors_data),
+                   fm = "minres", rotate = "oblimin")
+
+efa_distrust <- fa(R_distrust,
+                   nfactors = fa_distrust$nfact,
+                   n.obs = nrow(factors_data),
+                   fm = "minres", rotate = "oblimin")
+
+efa_company  <- fa(R_company,
+                   nfactors = fa_company$nfact,  
+                   n.obs = nrow(factors_data),
+                   fm = "minres", rotate = "oblimin")
+```
+
+Factor loadings below .30 are suppressed in the output table as they are considered negligible [@boateng2018].
+
+```{r}
+print_loadings <- function(efa) {
+  m <- efa$loadings %>% unclass() %>% as.data.frame() %>% round(2)
+  
+  m %>%
+    rownames_to_column("Item") %>%
+    mutate(across(where(is.numeric), ~ ifelse(abs(.x) < 0.30, "—", .x))) %>%
+    kable()
+}
+
+print_loadings(efa_trust)
+print_loadings(efa_distrust)
+print_loadings(efa_company)
+```
