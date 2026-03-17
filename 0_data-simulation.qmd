@@ -1,29 +1,29 @@
 ---
-title: "sim_data"
-format: html
+title: "Generating Simulated Data"
+author: "Lisa DeBruine"
+format:
+  html:
+    embed-resources: true
+    toc: true
+editor: visual
+bibliography: references.bib
+execute:
+  message: false
+  warning: false
 ---
 
 ```{r}
-#| include: false
 library(tidyverse)
 library(faux)
 ```
-
-
+# Load and Process Test Data
 ```{r}
-# read Qualtrics data without metadata rows
-file_path <- "TPSai_17+March+2026_16.59.csv"
+# read testers data from Qualtrics
+file_path <- "data/pilot/TPSai_17+March+2026_16.59.csv"
 raw_data <- read_csv(file_path, n_max = 2)
 colnames <- names(raw_data) |>
-  gsub("_(\\d)$", "_0\\1", x = _)
+  gsub("_(\\d)$", "_0\\1", x = _) # (e.g. TR_1 to TR_01m for ordering)
 
-# Row 2 of the file is the question text row (index 1 after skip)
-question_labels <- setNames(
-  sub(".* - ", "", as.character(raw_data[1, ])),
-  colnames
-)
-
-# define variables for questions and answers
 cols_trust    <- sprintf("TR_%02d", 1:22)
 cols_distrust <- sprintf("DT_%02d", 1:14)
 cols_company  <- sprintf("CD_%02d", 1:7)
@@ -45,12 +45,6 @@ factors_data <- read_csv(file_path, col_names = colnames, skip = 3) %>%
 # fix for new item name
 factors_data$DT_14[1:3] <- c(4,4,3)
 
-factors_data |>
-  mutate(id = row_number()) |>
-  pivot_longer(-id) |>
-  summarise(sd = sd(value), .by = name) |>
-  filter(sd == 0)
-
 # fix uniform values
 factors_data$TR_19[[1]] <- 2
 factors_data$CD_01[[1]] <- 4
@@ -60,13 +54,9 @@ factors_data$CD_01[[1]] <- 4
 #               .prob = c(.45, .45, .1), 
 #               .shuffle = TRUE)
 ```
-
-
+# Compute and Shrink Correlations
 ```{r}
-raw_cor <- cor(factors_data, use = "pairwise.complete.obs")
-
-
-# shrink values
+raw_cor <- cor(factors_data, method = 'spearman', use = "pairwise.complete.obs")
 
 shrinkage <- 0.85
 xcors <- raw_cor |> 
@@ -79,13 +69,12 @@ xcors <- raw_cor |>
   arrange(item, item2)
 ```
 
-
 ```{r}
 ggplot(xcors, aes(x = shrink)) +
   geom_histogram(binwidth = 0.05) +
   xlim(-1.1, 1.1)
 ```
-
+# Generate Simulated Data from Correlation Matrix
 ```{r}
 item_names <- unique(c(xcors$item, xcors$item2))
 simdat <- sim_design(
@@ -100,24 +89,15 @@ simdat <- sim_design(
   separate(item, c("scale", "scale_n"), remove = FALSE)
 ```
 
-
 ```{r}
 ggplot(simdat, aes(x = likert, fill = scale)) +
   geom_histogram(binwidth = 1, color = "black") +
   facet_wrap(~scale)
 ```
-
-
-```{r}
-get_params(simdat, dv = "likert", within = "item", id = "id")
-```
-
-
+# Write Simulated Data to CSV
 ```{r}
 simdat |>
   select(id, item, likert) |>
   pivot_wider(names_from = item, values_from = likert) |>
-  write_csv("simulated_item_data.csv")
+  write_csv("data/pilot/simulated_item_data.csv")
 ```
-
-
