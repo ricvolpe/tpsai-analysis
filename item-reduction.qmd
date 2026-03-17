@@ -108,6 +108,45 @@ missing_items %>%
   knitr::kable(digits = 2)
 ```
 
+## **Distributional Properties**
+
+We examine the skewness and kurtosis of each item to assess whether their distributions deviate substantially from normality. Skewness captures the asymmetry of a distribution — whether responses cluster toward one end of the scale — while kurtosis captures the heaviness of the tails relative to a normal distribution. Both matter for factor analysis because standard maximum likelihood (ML) estimation assumes multivariate normality: when individual items depart strongly from normality, ML can produce biased parameter estimates, inflated chi-square statistics, and distorted standard errors [@kline2016].
+
+Following @kline2016 , we treat absolute skewness and kurtosis values above 1.5 as indicative of meaningful non-normality. This is a moderate threshold, stricter than the ±1.0 sometimes recommended for smaller samples, but more conservative than the ±2.0 or ±3.0 thresholds occasionally used with larger ones. Items exceeding this threshold will be considered for removal alongside the other item reduction criteria. Where a substantial proportion of items show non-normality, we will additionally consider switching to a weighted least squares estimator (WLSMV) for the confirmatory factor analysis, as these approaches make no assumption of continuous normal distributions and are more appropriate for ordinal Likert data [@boateng2018].
+
+```{r}
+dist_threshold <- 1.5
+
+dist_data <- list(
+  Trust    = cols_trust,
+  Distrust = cols_distrust,
+  Company  = cols_company
+) %>%
+  map_dfr(~ {
+    items_data %>%
+      select(all_of(.x)) %>%
+      summarise(across(everything(), list(
+        skew = ~ psych::skew(.x,    na.rm = TRUE),
+        kurt = ~ psych::kurtosi(.x, na.rm = TRUE)
+      ), .names = "{.col}__{.fn}")) %>%
+      pivot_longer(everything(), names_to = c("item", "stat"), names_sep = "__") %>%
+      pivot_wider(names_from = stat, values_from = value)
+  }, .id = "subscale")
+
+
+ggplot(dist_data, aes(x = skew, y = kurt, colour = subscale, label = item)) +
+  geom_point() +
+  geom_hline(yintercept = c(-dist_threshold, dist_threshold), linetype = "dashed") +
+  geom_vline(xintercept = c(-dist_threshold, dist_threshold), linetype = "dashed") +
+  labs(x = "Skewness", y = "Kurtosis")
+```
+
+```{r}
+dist_data %>%
+  filter(abs(skew) > dist_threshold | abs(kurt) > dist_threshold) %>%
+  knitr::kable(digits = 2)
+```
+
 ## Inter-item Correlations
 
 Next, we examine pairwise Polychoric inter-item correlations within each TPSai sub-scale (Trust, Distrust, and AI Company) to identify redundant items. Polychoric correlations are used as they are more appropriate for ordinal Likert-scale data than Pearson correlations @boateng2018. Items correlating above .80 with another item within the same sub-scale are considered redundant, as this indicates the two items share more than 64% of their variance (*r*² = .64), leaving little unique contribution to the scale.
