@@ -26,9 +26,10 @@ set.seed(8675309) # makes sure random numbers are reproducible
 
 ```{r}
 # read Qualtrics data without metadata rows
-file_path <- "data/pilot/TPSai_13+March+2026_10.16.csv"
+file_path <- "TPSai_17+March+2026_16.59.csv"
 raw_data <- read_csv(file_path, n_max = 2)
-colnames <- names(raw_data)
+colnames <- names(raw_data) |>
+  gsub("_(\\d)$", "_0\\1", x = _)
 
 # Row 2 of the file is the question text row (index 1 after skip)
 question_labels <- setNames(
@@ -38,11 +39,12 @@ question_labels <- setNames(
 raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
 ```
 
+
 ```{r}
 # define variables for questions and answers
-cols_trust    <- paste0("TR_", 1:23)
-cols_distrust <- paste0("DT_", 1:13)
-cols_company  <- paste0("CD_", 1:7)
+cols_trust    <- sprintf("TR_%02d", 1:22)
+cols_distrust <- sprintf("DT_%02d", 1:14)
+cols_company  <- sprintf("CD_%02d", 1:7)
 cols_tpsai <- c(cols_trust, cols_distrust, cols_company)
 
 likert_levels <- c(
@@ -58,22 +60,17 @@ qid_label_map <- question_labels[cols_tpsai]
 qid_label_df <- tibble(id = names(qid_label_map), text = qid_label_map)
 ```
 
+
 ```{r}
-# generate random data for code development before data collection
-random_data <- as.data.frame(
-  lapply(cols_tpsai, function(col) {
-    sample(names(likert_levels), size=100, replace=TRUE)
-  })
-)
-colnames(random_data) <- cols_tpsai
+factors_data <- raw_data %>%
+  select(all_of(cols_tpsai))  %>%
+  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x]))
 ```
 
 ```{r}
-analysis_data <- random_data # switch to raw_data after data collection
-
-factors_data <- analysis_data %>%
-  select(all_of(cols_tpsai))  %>%
-  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x]))
+# switch to raw_data after data collection
+factors_data <- read_csv("simulated_item_data.csv") |>
+  select(-id)
 ```
 
 # Descriptive Statistics
@@ -114,10 +111,6 @@ cor_matrix <- cor(factors_data, use = "pairwise.complete.obs")
 
 ```{r}
 cor.plot(cor_matrix, numbers = FALSE, cex = 0.5)
-```
-
-```{r}
-kable(round(cor_matrix, 2))
 ```
 
 ```{r}

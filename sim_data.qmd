@@ -9,20 +9,67 @@ library(tidyverse)
 library(faux)
 ```
 
+
 ```{r}
-raw_cor <- read_csv("sample_correlation_matrix.csv")
-names(raw_cor)[[1]] <- "item"
+# read Qualtrics data without metadata rows
+file_path <- "TPSai_17+March+2026_16.59.csv"
+raw_data <- read_csv(file_path, n_max = 2)
+colnames <- names(raw_data) |>
+  gsub("_(\\d)$", "_0\\1", x = _)
+
+# Row 2 of the file is the question text row (index 1 after skip)
+question_labels <- setNames(
+  sub(".* - ", "", as.character(raw_data[1, ])),
+  colnames
+)
+
+# define variables for questions and answers
+cols_trust    <- sprintf("TR_%02d", 1:22)
+cols_distrust <- sprintf("DT_%02d", 1:14)
+cols_company  <- sprintf("CD_%02d", 1:7)
+cols_tpsai <- c(cols_trust, cols_distrust, cols_company)
+
+likert_levels <- c(
+  "Strongly disagree" = 1,
+  "Disagree" = 2,
+  "Neither agree nor disagree" = 3,
+  "Agree" = 4,
+  "Strongly agree" = 5,
+  "Don't know" = NA
+)
+
+factors_data <- read_csv(file_path, col_names = colnames, skip = 3) %>%
+  select(all_of(cols_tpsai))  %>%
+  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x]))
+
+# fix for new item name
+factors_data$DT_14 <- c(4,4,3,5)
+
+factors_data |>
+  mutate(id = row_number()) |>
+  pivot_longer(-id) |>
+  summarise(sd = sd(value), .by = name) |>
+  filter(sd == 0)
+
+# fix uniform values
+factors_data$TR_19[[1]] <- 2
+factors_data$CD_01[[1]] <- 4
+```
+
+
+```{r}
+raw_cor <- cor(factors_data, use = "pairwise.complete.obs")
 
 
 # shrink values
 
-shrinkage <- 0.75
-xcors <- raw_cor |>
+shrinkage <- 0.85
+xcors <- raw_cor |> 
+  as_tibble(rownames = "item") |>
   pivot_longer(-item, names_to = "item2", values_to = "r") |>
   mutate(item = gsub("_(\\d)$", "_0\\1", item),
          item2 = gsub("_(\\d)$", "_0\\1", item2)) |>
   filter(item < item2) |>
-  #filter(substr(item, 1, 2) == "TR", substr(item2, 1, 2) == "TR") |>
   mutate(shrink = ifelse(r < 0, -1, 1) * abs(r) * shrinkage)|>
   arrange(item, item2)
 ```
@@ -61,5 +108,11 @@ get_params(simdat, dv = "likert", within = "item", id = "id")
 ```
 
 
+```{r}
+simdat |>
+  select(id, item, likert) |>
+  pivot_wider(names_from = item, values_from = likert) |>
+  write_csv("simulated_item_data.csv")
+```
 
 
