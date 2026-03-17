@@ -54,6 +54,11 @@ factors_data |>
 # fix uniform values
 factors_data$TR_19[[1]] <- 2
 factors_data$CD_01[[1]] <- 4
+
+# xx <- factors_data |>
+#   add_between(gender = c("M", "F", "NB"), 
+#               .prob = c(.45, .45, .1), 
+#               .shuffle = TRUE)
 ```
 
 
