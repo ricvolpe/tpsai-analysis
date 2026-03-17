@@ -76,7 +76,7 @@ items_data <- analysis_data %>%
 
 ## High missingness
 
-High missingness items, where many people respond "*Don't know"*, likely capture constructs that participants are uncertain about and can reduce the effective sample size and bias item statistics like means and correlations. Given that we have a substantial number of survey itemsremoving high missingness items is a way of shortening our survey by focusing on constructs that people have clearer ideas about.
+High missingness items, where many people respond "*Don't know"*, likely capture constructs that participants are uncertain about and can reduce the effective sample size and bias item statistics like means and correlations. Given that we have a substantial number of survey items, removing high missingness items is a way of shortening our survey by focusing on constructs that people have clearer ideas about.
 
 We decided to drop items exceeding 30% missing responses. Our rationale is that if at least 3 out of 10 individuals were not able to meaningfully engage with an item, dropping it simplifies our scale and allows it to focus on measuring items with generally clearer responses. 30% is a relatively moderate threshold for removal of items with high missingness, which might avoid premature dropping of items with moderate missingness may still yield interpretable results.
 
@@ -192,7 +192,7 @@ ii_cor_data %>%
 
 ## Item-Total Correlations
 
-For each item, we compute the *adjusted item-total correlation*, the correlation between that item and the sum of all other items in the same sub-scale, excluding itself. Items with an adjusted item-total correlation below .30 are flagged for potential removal, as they contribute little to what the sub-scale is measuring overall \@boateng2018.
+For each item, we compute the *adjusted item-total correlation*, the correlation between that item and the sum of all other items in the same sub-scale, excluding itself. Items with an adjusted item-total correlation below .30 are flagged for potential removal, as they contribute little to what the sub-scale is measuring overall [@boateng2018]
 
 As with previous checks, we will also visually inspect the distribution of item-total correlations within each sub-scale, looking for discontinuities that may identify items worth removing even if they fall above our pre-set threshold. Particular attention will be paid to any negatively correlating items, which would suggest an item is moving in the opposite direction to the rest of its sub-scale — a strong signal of potential issues with wording or construct alignment.
 
