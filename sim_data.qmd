@@ -43,7 +43,7 @@ factors_data <- read_csv(file_path, col_names = colnames, skip = 3) %>%
   mutate(across(all_of(cols_tpsai), ~ likert_levels[.x]))
 
 # fix for new item name
-factors_data$DT_14 <- c(4,4,3,5)
+factors_data$DT_14[1:3] <- c(4,4,3)
 
 factors_data |>
   mutate(id = row_number()) |>
