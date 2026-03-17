@@ -25,51 +25,20 @@ set.seed(8675309) # makes sure random numbers are reproducible
 ```
 
 ```{r}
-# read Qualtrics data without metadata rows
-file_path <- "data/pilot/TPSai_11+March+2026_12.01.csv"
-raw_data <- read_csv(file_path, n_max = 2)
-colnames <- names(raw_data)
-raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
+source("read_qualtrics_data.R")
+d <- load_data("data/pilot/TPSai_17+March+2026_16.59.csv")
+cols_tpsai <- d$cols_tpsai
 ```
 
 ```{r}
-# define variables for questions and answers
-cols_trust    <- paste0("TR_", 1:23)
-cols_distrust <- paste0("DT_", 1:13)
-cols_company  <- paste0("CD_", 1:7)
-cols_tpsai <- c(cols_trust, cols_distrust, cols_company)
-
-likert_levels <- c(
-  "Strongly disagree" = 1,
-  "Disagree" = 2,
-  "Neither agree nor disagree" = 3,
-  "Agree" = 4,
-  "Strongly agree" = 5,
-  "Don't know" = NA
-)
-```
-
-```{r}
-# generate random data for code development before data collection
-random_data <- as.data.frame(
-  lapply(cols_tpsai, function(col) {
-    sample(names(likert_levels), size=100, replace=TRUE)
-  })
-)
-colnames(random_data) <- cols_tpsai
-```
-
-```{r}
-analysis_data <- random_data # switch to raw_data after data collection
-
-items_data <- analysis_data %>%
+# switch to d$items_data after data collection
+items_data <- read_csv("data/pilot/simulated_item_data.csv") %>%
   select(all_of(cols_tpsai))  %>%
-  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x])) %>%
   # simulate one column with >.3 missingness
-  faux::messy(prop = .4, "TR_1") %>%
-  # make a high correlation between DISTRUST_1 and _2
-  mutate(DT_2 = DT_1 + sample(-1:1, n(), replace = TRUE),
-         DT_2 = case_match(DT_2, 0 ~ 1, 6 ~ 5, .default = DT_2))
+  faux::messy(prop = .4, "TR_01") %>%
+  # make a high correlation between DISTRUST_01 and _02
+  mutate(DT_02 = DT_01 + sample(-1:1, n(), replace = TRUE),
+         DT_02 = case_match(DT_02, 0 ~ 1, 6 ~ 5, .default = DT_02))
 ```
 
 # Item Evaluation
@@ -118,9 +87,9 @@ Following @kline2016 , we treat absolute skewness and kurtosis values above 1.5 
 dist_threshold <- 1.5
 
 dist_data <- list(
-  Trust    = cols_trust,
-  Distrust = cols_distrust,
-  Company  = cols_company
+  Trust    = d$cols_trust,
+  Distrust = d$cols_distrust,
+  Company  = d$cols_company
 ) %>%
   map_dfr(~ {
     items_data %>%
@@ -183,8 +152,6 @@ ii_cor_data %>%
   knitr::kable(digits = 2)
 ```
 
-#TODO: look at inter-item correlations across scales
-
 ## Item-Total Correlations
 
 For each item, we compute the *adjusted item-total correlation*, the correlation between that item and the sum of all other items in the same sub-scale, excluding itself. Items with an adjusted item-total correlation below .30 are flagged for potential removal, as they contribute little to what the sub-scale is measuring overall [@boateng2018]
@@ -195,9 +162,9 @@ As with previous checks, we will also visually inspect the distribution of item-
 it_cor_threshold <- 0.3
 
 it_cor_data <- list(
-  Trust    = cols_trust,
-  Distrust = cols_distrust,
-  Company  = cols_company
+  Trust    = d$cols_trust,
+  Distrust = d$cols_distrust,
+  Company  = d$cols_company
 ) %>%
   map_dfr(~ {
     items_data %>%

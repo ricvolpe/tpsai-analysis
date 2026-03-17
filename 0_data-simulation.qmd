@@ -16,31 +16,13 @@ execute:
 library(tidyverse)
 library(faux)
 ```
+
 # Load and Process Test Data
+
 ```{r}
-# read testers data from Qualtrics
-file_path <- "data/pilot/TPSai_17+March+2026_16.59.csv"
-raw_data <- read_csv(file_path, n_max = 2)
-colnames <- names(raw_data) |>
-  gsub("_(\\d)$", "_0\\1", x = _) # (e.g. TR_1 to TR_01m for ordering)
-
-cols_trust    <- sprintf("TR_%02d", 1:22)
-cols_distrust <- sprintf("DT_%02d", 1:14)
-cols_company  <- sprintf("CD_%02d", 1:7)
-cols_tpsai <- c(cols_trust, cols_distrust, cols_company)
-
-likert_levels <- c(
-  "Strongly disagree" = 1,
-  "Disagree" = 2,
-  "Neither agree nor disagree" = 3,
-  "Agree" = 4,
-  "Strongly agree" = 5,
-  "Don't know" = NA
-)
-
-factors_data <- read_csv(file_path, col_names = colnames, skip = 3) %>%
-  select(all_of(cols_tpsai))  %>%
-  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x]))
+source("read_qualtrics_data.R")
+d <- load_data("data/pilot/TPSai_17+March+2026_16.59.csv")
+factors_data <- d$items_data
 
 # fix for new item name
 factors_data$DT_14[1:3] <- c(4,4,3)
@@ -54,7 +36,9 @@ factors_data$CD_01[[1]] <- 4
 #               .prob = c(.45, .45, .1), 
 #               .shuffle = TRUE)
 ```
+
 # Compute and Shrink Correlations
+
 ```{r}
 raw_cor <- cor(factors_data, method = 'spearman', use = "pairwise.complete.obs")
 
@@ -74,7 +58,9 @@ ggplot(xcors, aes(x = shrink)) +
   geom_histogram(binwidth = 0.05) +
   xlim(-1.1, 1.1)
 ```
+
 # Generate Simulated Data from Correlation Matrix
+
 ```{r}
 item_names <- unique(c(xcors$item, xcors$item2))
 simdat <- sim_design(
@@ -94,7 +80,9 @@ ggplot(simdat, aes(x = likert, fill = scale)) +
   geom_histogram(binwidth = 1, color = "black") +
   facet_wrap(~scale)
 ```
+
 # Write Simulated Data to CSV
+
 ```{r}
 simdat |>
   select(id, item, likert) |>

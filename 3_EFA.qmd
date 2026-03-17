@@ -25,52 +25,13 @@ set.seed(8675309) # makes sure random numbers are reproducible
 ```
 
 ```{r}
-# read Qualtrics data without metadata rows
-file_path <- "TPSai_17+March+2026_16.59.csv"
-raw_data <- read_csv(file_path, n_max = 2)
-colnames <- names(raw_data) |>
-  gsub("_(\\d)$", "_0\\1", x = _)
+source("read_qualtrics_data.R")
+d <- load_data("data/pilot/TPSai_17+March+2026_16.59.csv")
+cols_tpsai <- d$cols_tpsai
 
-# Row 2 of the file is the question text row (index 1 after skip)
-question_labels <- setNames(
-  sub(".* - ", "", as.character(raw_data[1, ])),
-  colnames
-)
-raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
-```
-
-
-```{r}
-# define variables for questions and answers
-cols_trust    <- sprintf("TR_%02d", 1:22)
-cols_distrust <- sprintf("DT_%02d", 1:14)
-cols_company  <- sprintf("CD_%02d", 1:7)
-cols_tpsai <- c(cols_trust, cols_distrust, cols_company)
-
-likert_levels <- c(
-  "Strongly disagree" = 1,
-  "Disagree" = 2,
-  "Neither agree nor disagree" = 3,
-  "Agree" = 4,
-  "Strongly agree" = 5,
-  "Don't know" = NA
-)
-
-qid_label_map <- question_labels[cols_tpsai]
-qid_label_df <- tibble(id = names(qid_label_map), text = qid_label_map)
-```
-
-
-```{r}
-factors_data <- raw_data %>%
-  select(all_of(cols_tpsai))  %>%
-  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x]))
-```
-
-```{r}
-# switch to raw_data after data collection
-factors_data <- read_csv("simulated_item_data.csv") |>
-  select(-id)
+# switch to d$items_data after data collection
+factors_data <- read_csv("data/pilot/simulated_item_data.csv") %>%
+  select(all_of(cols_tpsai))
 ```
 
 # Descriptive Statistics
@@ -91,8 +52,10 @@ item_descriptives <- function(data, item_cols, scale_name) {
   ))
 }
 
-list(Trust = cols_trust, Distrust = cols_distrust, 
-     "Corporate Distrust" = cols_company) %>%
+list(
+  Trust = d$cols_trust, 
+  Distrust = d$cols_distrust, 
+  "Corporate Distrust" = d$cols_company) %>%
   imap(~ item_descriptives(factors_data, .x, .y)) %>%
   bind_rows() %>%
   kable(
@@ -107,14 +70,11 @@ We inspect the full inter-item correlation matrix to assess the factorability of
 
 ```{r}
 cor_matrix <- cor(factors_data, use = "pairwise.complete.obs")
-```
-
-```{r}
-cor.plot(cor_matrix, numbers = FALSE, cex = 0.5)
-```
-
-```{r}
-write.csv(round(cor_matrix, 2), "data/pilot/sample_correlation_matrix.csv")
+cor.plot(cor_matrix,
+         numbers = FALSE,
+         cex     = 0.5,
+         gr  = colorRampPalette(c("#7B2D8B", "white", "#E66101"))
+)
 ```
 
 ## Sub-scales correlation
@@ -132,9 +92,9 @@ If any two subscales correlate above .80, indicating substantial construct overl
 ```{r}
 subscales <- factors_data %>%
   mutate(
-    Trust    = rowMeans(pick(all_of(cols_trust)),    na.rm = TRUE),
-    Distrust = rowMeans(pick(all_of(cols_distrust)), na.rm = TRUE),
-    "Corporate Distrust"  = rowMeans(pick(all_of(cols_company)),  na.rm = TRUE)
+    Trust    = rowMeans(pick(all_of(d$cols_trust)),    na.rm = TRUE),
+    Distrust = rowMeans(pick(all_of(d$cols_distrust)), na.rm = TRUE),
+    "Corporate Distrust"  = rowMeans(pick(all_of(d$cols_company)),  na.rm = TRUE)
   ) %>%
   select(Trust, Distrust, "Corporate Distrust")
 
@@ -177,9 +137,9 @@ factorability <- function(R, n) {
   )
 }
 
-R_trust    <- polychoric(factors_data %>% select(all_of(cols_trust)))$rho
-R_distrust <- polychoric(factors_data %>% select(all_of(cols_distrust)))$rho
-R_company  <- polychoric(factors_data %>% select(all_of(cols_company)))$rho
+R_trust    <- polychoric(factors_data %>% select(all_of(d$cols_trust)))$rho
+R_distrust <- polychoric(factors_data %>% select(all_of(d$cols_distrust)))$rho
+R_company  <- polychoric(factors_data %>% select(all_of(d$cols_company)))$rho
 
 bind_rows(
   factorability(R_trust,    nrow(factors_data)),
