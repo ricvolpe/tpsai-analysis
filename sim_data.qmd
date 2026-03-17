@@ -1,0 +1,65 @@
+---
+title: "sim_data"
+format: html
+---
+
+```{r}
+#| include: false
+library(tidyverse)
+library(faux)
+```
+
+```{r}
+raw_cor <- read_csv("sample_correlation_matrix.csv")
+names(raw_cor)[[1]] <- "item"
+
+
+# shrink values
+
+shrinkage <- 0.75
+xcors <- raw_cor |>
+  pivot_longer(-item, names_to = "item2", values_to = "r") |>
+  mutate(item = gsub("_(\\d)$", "_0\\1", item),
+         item2 = gsub("_(\\d)$", "_0\\1", item2)) |>
+  filter(item < item2) |>
+  #filter(substr(item, 1, 2) == "TR", substr(item2, 1, 2) == "TR") |>
+  mutate(shrink = ifelse(r < 0, -1, 1) * abs(r) * shrinkage)|>
+  arrange(item, item2)
+```
+
+
+```{r}
+ggplot(xcors, aes(x = shrink)) +
+  geom_histogram(binwidth = 0.05) +
+  xlim(-1.1, 1.1)
+```
+
+```{r}
+item_names <- unique(c(xcors$item, xcors$item2))
+simdat <- sim_design(
+  n = 100, 
+  within = list(item = item_names),
+  r = xcors$shrink,
+  sep = "~",
+  plot = FALSE,
+  long = TRUE
+) |>
+  mutate(likert = norm2likert(y, c(1, 2, 3, 2, 1), labels = 1:5)) |>
+  separate(item, c("scale", "scale_n"), remove = FALSE)
+```
+
+
+```{r}
+ggplot(simdat, aes(x = likert, fill = scale)) +
+  geom_histogram(binwidth = 1, color = "black") +
+  facet_wrap(~scale)
+```
+
+
+```{r}
+get_params(simdat, dv = "likert", within = "item", id = "id")
+```
+
+
+
+
