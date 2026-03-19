@@ -103,12 +103,12 @@ ggplot(simdat_efa, aes(x = likert, fill = scale)) +
 simdat_efa |>
   select(id, item, likert) |>
   pivot_wider(names_from = item, values_from = likert) |>
-  write_csv("data/pilot/simulated_efa_data")
+  write_csv("data/pilot/simulated_efa_data.csv")
 
 simdat_cfa |>
   select(id, item, likert) |>
   pivot_wider(names_from = item, values_from = likert) |>
-  write_csv("data/pilot/simulated_cfa_data")
+  write_csv("data/pilot/simulated_cfa_data.csv")
 ```
 
 \

@@ -18,7 +18,6 @@ execute:
 library(tidyverse)
 library(gtools)
 library(psych)
-library(faux)
 library(knitr)
 
 set.seed(8675309) # makes sure random numbers are reproducible
@@ -30,7 +29,7 @@ d <- load_data("data/pilot/TPSai_17+March+2026_16.59.csv")
 cols_tpsai <- d$cols_tpsai
 
 # switch to d$items_data after data collection
-factors_data <- read_csv("data/pilot/simulated_item_data.csv") %>%
+factors_data <- read_csv("data/pilot/simulated_efa_data.csv") %>%
   select(all_of(cols_tpsai))
 ```
 
@@ -222,4 +221,20 @@ print_loadings <- function(efa) {
 print_loadings(efa_trust)
 print_loadings(efa_distrust)
 print_loadings(efa_company)
+```
+
+## Save EFA loadings
+
+```{r}
+list(
+  Trust                = efa_trust,
+  Distrust             = efa_distrust,
+  `Corporate Distrust` = efa_company
+) %>%
+  imap_dfr(~ unclass(.x$loadings) %>%
+              as.data.frame() %>%
+              rownames_to_column("Item") %>%
+              mutate(Subscale = .y)) %>%
+  select(Subscale, Item, everything()) %>%
+  write_csv("data/pilot/efa_loadings.csv")
 ```
