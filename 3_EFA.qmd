@@ -1,5 +1,5 @@
 ---
-title: "Exploratory Factor Analysis (EFA)"
+title: "Factor Analysis"
 author: "Riccardo Volpato"
 format:
   html:
@@ -29,67 +29,65 @@ d <- load_data("data/pilot/TPSai_17+March+2026_16.59.csv")
 cols_tpsai <- d$cols_tpsai
 
 # switch to d$items_data after data collection
-factors_data <- read_csv("data/pilot/simulated_efa_data.csv") %>%
+efa_data <- read_csv("data/pilot/simulated_efa_data.csv") %>%
   select(all_of(cols_tpsai))
 ```
 
-# Descriptive Statistics
+# Analysis Structure
 
-We report means, standard deviations, skewness, and kurtosis for all retained items, grouped by subscale. These statistics provide a preliminary characterisation of the response distributions.
+Before proceeding to our factor analysis we need to make two key decisions about its structure: 1. Whether we exclude any items from factor analysis 2. How to group our sub-scales
+
+## Item Exclusion
+
+Al thought we have already covered this step in our item reduction analysis, we re-examine skewness and kurtosis for each item in our new data sample to check whether responses are spread across the scale or piled up at one end. Items where most people gave the same answer have little variation, which makes it harder for factor analysis to detect the underlying structure, regardless of the estimation method used.
+
+Following @kline2016, we treat absolute skewness and kurtosis values above 1.5 as a sign that an item's responses are too bunched together to be useful. Items exceeding this threshold will be considered for removal alongside the other item reduction criteria. Additionally, we may consider keeping items with high skew or kurtosis for comparison or reporting purposes but flag them for removal from factor analysis.
 
 ```{r}
-item_descriptives <- function(data, item_cols, scale_name) {
-  d <- data %>% select(all_of(item_cols))
+dist_threshold <- 1.5
 
-  map_dfr(item_cols, ~ tibble(
-    subscale    = scale_name,
-    item        = .x,
-    M           = round(mean(d[[.x]], na.rm = TRUE), 2),
-    SD          = round(sd(d[[.x]],   na.rm = TRUE), 2),
-    skew        = round(psych::skew(d[[.x]],     na.rm = TRUE), 2),
-    kurt        = round(psych::kurtosi(d[[.x]],  na.rm = TRUE), 2),
-  ))
-}
+dist_data <- efa_data %>%
+  summarise(
+    across(all_of(everything()), list(
+        skew = ~ psych::skew(.x,    na.rm = TRUE),
+        kurt = ~ psych::kurtosi(.x, na.rm = TRUE)
+      ), .names = "{.col}_{.fn}")
+  ) %>%
+  pivot_longer(
+    everything(),
+    names_to  = c("item", ".value"),
+    names_sep = "_(?=[^_]+$)"
+  ) %>%
+  separate(item, c("subscale", "q_n"), sep = "_", remove = FALSE)
 
-list(
-  Trust = d$cols_trust, 
-  Distrust = d$cols_distrust, 
-  "Corporate Distrust" = d$cols_company) %>%
-  imap(~ item_descriptives(factors_data, .x, .y)) %>%
-  bind_rows() %>%
-  kable(
-    col.names  = c("Subscale", "Item", "M", "SD", "Skew", "Kurtosis"),
-    digits     = 2
-  )
+ggplot(dist_data, aes(x = skew, y = kurt, colour = subscale, label = item)) +
+  geom_point() +
+  geom_hline(yintercept = c(-dist_threshold, dist_threshold), linetype = "dashed") +
+  geom_vline(xintercept = c(-dist_threshold, dist_threshold), linetype = "dashed") +
+  labs(x = "Skewness", y = "Kurtosis")
 ```
 
-## Correlation Matrix
-
-We inspect the full inter-item correlation matrix to assess the factorability of the data. Items should show moderate correlations with one another: too low and they share insufficient common variance to define a factor; too high and they may be redundant, though extreme pairs should already have been removed at the item reduction stage.
-
 ```{r}
-cor_matrix <- cor(factors_data, use = "pairwise.complete.obs")
-cor.plot(cor_matrix,
-         numbers = FALSE,
-         cex     = 0.5,
-         gr  = colorRampPalette(c("#7B2D8B", "white", "#E66101"))
-)
+dist_data %>%
+  filter(abs(skew) > dist_threshold | abs(kurt) > dist_threshold) %>% 
+  select(subscale, item, skew, kurt) %>% 
+  knitr::kable(digits = 2)
 ```
 
-## Sub-scales correlation
+## Sub-scale Grouping
 
-We report Spearman correlations between the three TPSai sub-scale mean scores (Trust, Distrust, and Corporate Distrust) to examine their inter-relationships prior to factor analysis. Spearman correlations are used as a rank-based, distribution-free alternative to Pearson, which is more appropriate for composite scores derived from ordinal Likert items [@boateng2018].
+We consider three options for factor analysis: 1. Conduct separate factor analysis for each sub-scale 2. Conduct a single factor analysis across sub-scales 3. Conduct a factor analysis for trust and distrust items, merging Trust and Corporate Distrust into a single sub-scale
 
-We plan to conduct separate EFAs for each sub-scale rather than a single joint EFA across all items. This decision is driven by three considerations:
+Before empirical examination, some theoretical argument worth considering are: \* the theoretical independence of Trust and Distrust as related but distinct constructs warrants separate investigation [@mcknight2001; @scharowski24], suggesting either option 1 or 3. \* combining all items in a single analysis would introduce a mixed-valence structure. Trust items are positively worded while Distrust and Corporate Distrust items are negatively worded, which risks producing factors driven by wording artefacts rather than substantive constructs [@zhang2016], suggesting either option 1 or 3. \* Corporate Distrust is conceptually distinct from Distrust as it targets an organisational entity rather than an AI system directly, suggesting option 1 over option 3, although weakly because it could be a factor. \* Trust and Distrust (including Corporate Distrust) items are more or less of equal length (22 vs 21) suggesting two lenght-balanced sub-scales, suggesting option 3 over 1.
 
-1.  The theoretical independence of Trust and Distrust as related but distinct constructs warrants separate investigation[@mcknight2001; @scharowski24]
-2.  Corporate Distrust is conceptually distinct from both, as it targets an organisational entity rather than an AI system directly.
-3.  Combining all items in a single EFA would introduce a mixed-valence structure. Trust items are positively worded while Distrust and Corporate Distrust items are negatively worded, which risks producing factors driven by wording artefacts rather than substantive constructs [@zhang2016].
+### Correlations
 
-If any two subscales correlate above .80, indicating substantial construct overlap, we will reconsider this decision and run a single joint EFA instead.
+First, we report Spearman correlations between the three sub-scale mean scores (Trust, Distrust, and Corporate Distrust) to examine their inter-relationships prior to factor analysis. Spearman correlations are used as a rank-based, distribution-free alternative to Pearson, which is more appropriate for composite scores derived from ordinal Likert items [@boateng2018].
+
+If any two subscales correlate above .80, indicating substantial construct overlap, we consider combining them for factor analysis into either option 2 or 3.
 
 ```{r}
-subscales <- factors_data %>%
+subscales <- efa_data %>%
   mutate(
     Trust    = rowMeans(pick(all_of(d$cols_trust)),    na.rm = TRUE),
     Distrust = rowMeans(pick(all_of(d$cols_distrust)), na.rm = TRUE),
@@ -108,17 +106,9 @@ cor_subscales %>%
   kable(digits = 2)
 ```
 
-# Exploratory Factor Analysis
+### Factorability
 
-Exploratory factor analysis (EFA) is a statistical technique for identifying hidden structure in a set of items. The core idea is simple: if many items correlate with each other, they are probably all measuring some common underlying thing, a latent factor.
-
-EFA works by finding the smallest number of latent factors that can reproduce the observed correlations among items. It does this by asking: if these factors exist, what pattern of correlations between items would they produce? The solution that best matches the actual observed correlations, leaving the smallest residuals, is retained.
-
-Because EFA makes no assumptions about which items belong to which factor, it is well suited to the early stages of scale development, where the goal is to let the data reveal the underlying structure rather than confirm a predetermined one.
-
-## Checks
-
-Before running the EFA, we check whether the data are suitable for factor analysis at all.
+We examing two factorability checks for different sub-scale groupings.
 
 The Kaiser-Meyer-Olkin (KMO) index asks whether the correlations among items are sufficiently compact and patterned to yield reliable factors. Values above .80 indicate good sampling adequacy and values above .90 are excellent. We treat KMO as our primary indicator of factorability.
 
@@ -136,50 +126,46 @@ factorability <- function(R, n) {
   )
 }
 
-R_trust    <- polychoric(factors_data %>% select(all_of(d$cols_trust)))$rho
-R_distrust <- polychoric(factors_data %>% select(all_of(d$cols_distrust)))$rho
-R_company  <- polychoric(factors_data %>% select(all_of(d$cols_company)))$rho
+R_all        <- polychoric(efa_data %>% select(all_of(d$cols_tpsai)))$rho
+R_trust      <- polychoric(efa_data %>% select(all_of(d$cols_trust)))$rho
+R_distrust_1 <- polychoric(efa_data %>% select(all_of(d$cols_distrust)))$rho
+R_distrust_2 <- polychoric(efa_data %>% select(all_of(c(d$cols_distrust, d$cols_company))))$rho
+R_company    <- polychoric(efa_data %>% select(all_of(d$cols_company)))$rho
 
 bind_rows(
-  factorability(R_trust,    nrow(factors_data)),
-  factorability(R_distrust, nrow(factors_data)),
-  factorability(R_company,  nrow(factors_data))
+  factorability(R_all,    nrow(efa_data)),
+  factorability(R_trust,    nrow(efa_data)),
+  factorability(R_distrust_1, nrow(efa_data)),
+  factorability(R_company,  nrow(efa_data)),
+  factorability(R_distrust_2, nrow(efa_data)),
 ) %>%
-  mutate(subscale = c("Trust", "Distrust", "Corporate Distrust")) %>%
+  mutate(subscale = c("All", "Trust", "Distrust Single", "Corporate Distrust", "Distrust (including Corporate)")) %>%
   select(subscale, everything()) %>%
   kable(digits = 3,
         col.names = c("Subscale", "KMO", "χ²", "df", "p"))
 ```
 
-## Factor Retention
+# Exploratory Factor Analysis
+
+Exploratory factor analysis (EFA) is a statistical technique for identifying hidden structure in a set of items. The core idea is simple: if many items correlate with each other, they are probably all measuring some common underlying thing, a latent factor. EFA works by finding the smallest number of latent factors that can reproduce the observed correlations among items. It does this by asking: if these factors exist, what pattern of correlations between items would they produce? The solution that best matches the actual observed correlations, leaving the smallest residuals, is retained. Because EFA makes no assumptions about which items belong to which factor, it is well suited to the early stages of scale development, where the goal is to let the data reveal the underlying structure rather than confirm a predetermined one.
+
+## Parallel Analysis
 
 A key decision in EFA is how many factors to extract. Extracting too few factors leaves meaningful structure unexplained; extracting too many produces factors that are essentially fitting noise in the data.
 
-**Parallel analysis** addresses this by comparing each factor's eigenvalue from the real correlation matrix to the corresponding eigenvalue from random correlation matrices of the same dimensions.
-
-Each factor is associated with an *eigenvalue*. Mathematically, an eigenvalue summarises how much of the shared variance among items a factor captures. When EFA extracts a factor, it finds a weighted combination of items that explains as much of the common variance as possible, the eigenvalue is the sum of the squared factor loadings for that factor across all items. A large eigenvalue therefore means many items have high loadings on that factor. Eigenvalues are computed using MINRES estimation, which minimises the residual correlations between the observed and reproduced correlation matrices and makes no distributional assumptions.
-
-In parallel analysis, factors are ordered by their eigenvalues from largest to smallest, with the first eigenvalue belonging to the first factor, the one explaining the most variance of the real correlation matrix, the second to the second factor, and so on.
-
-For each factor in turn, if the eigenvalue from the real data exceeds the average eigenvalue from the random matrices, meaning the factor is accounting for more variance than a factor extracted from pure noise would, that factor is considered to reflect genuine underlying structure in the data and is worth retaining.
-
-The moment the real eigenvalue drops below the random one, which is also what the scree plot visualises, with the blue line (real data) dropping below the red line (random data), that factor and all subsequent ones are considered noise and discarded.
+**Parallel analysis** addresses this by comparing each factor's eigenvalue from the real correlation matrix to the corresponding eigenvalue from random correlation matrices of the same dimensions. Each factor is associated with an *eigenvalue*. Mathematically, an eigenvalue summarises how much of the shared variance among items a factor captures. When EFA extracts a factor, it finds a weighted combination of items that explains as much of the common variance as possible, the eigenvalue is the sum of the squared factor loadings for that factor across all items. A large eigenvalue therefore means many items have high loadings on that factor. Eigenvalues are computed using MINRES estimation, which minimises the residual correlations between the observed and reproduced correlation matrices and makes no distributional assumptions. In parallel analysis, factors are ordered by their eigenvalues from largest to smallest, with the first eigenvalue belonging to the first factor, the one explaining the most variance of the real correlation matrix, the second to the second factor, and so on. For each factor in turn, if the eigenvalue from the real data exceeds the average eigenvalue from the random matrices, meaning the factor is accounting for more variance than a factor extracted from pure noise would, that factor is considered to reflect genuine underlying structure in the data and is worth retaining. The moment the real eigenvalue drops below the random one, which is also what the scree plot visualises, with the blue line (real data) dropping below the red line (random data), that factor and all subsequent ones are considered noise and discarded.
 
 ```{r}
-fa_trust <- fa.parallel(R_trust,    n.obs = nrow(factors_data), 
+fa_trust <- fa.parallel(R_trust,    n.obs = nrow(efa_data), 
             fm = "minres", fa = "fa",
             main = "Parallel Analysis — Trust")
 
-fa_distrust <- fa.parallel(R_distrust, n.obs = nrow(factors_data), 
+fa_distrust <- fa.parallel(R_distrust_2, n.obs = nrow(efa_data), 
             fm = "minres", fa = "fa",
             main = "Parallel Analysis — Distrust")
-
-fa_company <- fa.parallel(R_company,  n.obs = nrow(factors_data), 
-            fm = "minres", fa = "fa",
-            main = "Parallel Analysis — Corporate Distrust")
 ```
 
-## Factor Extraction
+## Factor Loadings
 
 Once the number of factors is determined, we extract them using *MINRES* estimation with *oblimin* rotation.
 
@@ -191,50 +177,125 @@ We use **oblimin**, which is an oblique rotation method meaning factors are allo
 
 ```{r}
 efa_trust    <- fa(R_trust,
-                   nfactors = fa_trust$nfact,
-                   n.obs = nrow(factors_data),
+                   nfactors = 3,
+                   n.obs = nrow(efa_data),
                    fm = "minres", rotate = "oblimin")
 
-efa_distrust <- fa(R_distrust,
-                   nfactors = fa_distrust$nfact,
-                   n.obs = nrow(factors_data),
-                   fm = "minres", rotate = "oblimin")
-
-efa_company  <- fa(R_company,
-                   nfactors = fa_company$nfact,  
-                   n.obs = nrow(factors_data),
+efa_distrust <- fa(R_distrust_2,
+                   nfactors = 3,
+                   n.obs = nrow(efa_data),
                    fm = "minres", rotate = "oblimin")
 ```
 
-Factor loadings below .30 are suppressed in the output table as they are considered negligible [@boateng2018].
+Below we display factor loadings for the different EFA that we ran. We are looking for a factor structure that is robust and simple, that is loadings have high values in one factor only [@buchanan2014]. More specifically we defined high loadings as loadings above 0.5 and high values in only one factor when the difference between the highest loading and the second highest is above 0.15.
 
 ```{r}
-print_loadings <- function(efa) {
+get_loadings <- function(efa, primary_threshold = 0.5, cross_load_diff = 0.15) {
   m <- efa$loadings %>% unclass() %>% as.data.frame() %>% round(2)
+  factor_cols <- names(m)
   
   m %>%
     rownames_to_column("Item") %>%
-    mutate(across(where(is.numeric), ~ ifelse(abs(.x) < 0.30, "—", .x))) %>%
+    mutate(
+      max        = apply(across(all_of(factor_cols)), 1, function(x) max(abs(x), na.rm = TRUE)) %>% round(2),
+      
+      topdiff  = apply(across(all_of(factor_cols)), 1, function(x) {
+        sorted <- sort(abs(x), decreasing = TRUE)
+        if (length(sorted) >= 2) round(sorted[1] - sorted[2], 2) else NA
+      }),
+      flag = case_when(
+        max < primary_threshold              ~ "weak primary",
+        topdiff < cross_load_diff          ~ "cross-load",
+        TRUE                                 ~ ""
+      ),
+      n_loadings = apply(across(all_of(factor_cols)), 1, function(x) sum(abs(x) >= 0.30, na.rm = TRUE))
+    ) %>%
+    mutate(across(all_of(factor_cols), ~ ifelse(abs(.x) < 0.30, "—", .x)))
+}
+
+efa_trust_loads <- get_loadings(efa_trust)
+efa_distrust_loads <- get_loadings(efa_distrust)
+
+efa_trust_loads %>% kable()
+efa_distrust_loads %>% kable()
+```
+
+## Analysis Decisions
+
+We can judge whether the resulting factor structure of our analysis is not robust nor simple through a few heuristics: \* more than \>20% of items have been flagged \* any one factor has less 3 un-flagged items \* cross-loadings do not have theoretically plausible explanations
+
+In these cases, we can iterate on our factor solutions through two options:
+
+1.  Reduce the number of factors
+
+2.  Drop contentious items
+
+### Reducing the number of factors
+
+Two considerations for reducing the number of factors:
+
+1.  Re-examining the scree-plot of the parallel analysis and inspect whether there is a clear elbow in the plot before the actual data drops below the random one, suggesting that this could be a more suitable number of factors.
+
+2.  Examining the factor correlation matrix: if some factors are highly correlated (say r \> 0.6), that's a sign they might be better represented as a single factor.
+
+```{r}
+efa_trust$Phi %>% 
+  as.data.frame() %>%
+  round(2) %>%
+  kable()
+
+efa_distrust$Phi %>% 
+  as.data.frame() %>%
+  round(2) %>%
+  kable()
+```
+
+### Dropping items
+
+To consider which items to drop, we can examine the items that we flagged when extracting factor loadings, either because they had a weak primary loading or because they cross-loaded
+
+```{r}
+efa_trust_loads %>% 
+  filter(flag != "") %>% 
+  kable()
+
+efa_distrust_loads %>% 
+  filter(flag != "") %>% 
+  kable()
+```
+
+Some heuristic considerations for dropping flagged items:
+
+-   weak primary loading (max \< 0.50) might mean that the item isn't contributing much anywhere
+
+-   small cross-load differences (\< 0.1) across multiple factors indicates that the item is highly ambiguous
+
+```{r}
+d$qid_label_df %>% kable()
+```
+
+-   we can also examine item-total correlation within its primary loading factor (below). The ambiguous items might have low correlations with the items that cleanly define each factor, which would confirm they don't really belong anywhere.
+
+```{r}
+item_total_by_factor <- function(efa, data) {
+  efa$loadings %>% unclass() %>% as.data.frame() %>%
+    rownames_to_column("item") %>%
+    pivot_longer(-item, names_to = "factor", values_to = "loading") %>%
+    filter(abs(loading) >= 0.30) %>%
+    group_by(item) %>%
+    slice_max(abs(loading), n = 1) %>%
+    ungroup() %>%
+    group_by(factor) %>%
+    group_map(~ {
+      data %>% select(all_of(.x$item)) %>%
+        psych::alpha() %>% .$item.stats %>%
+        rownames_to_column("item") %>% select(item, r = r.drop)
+    }, .keep = TRUE) %>%
+    bind_rows() %>%
+    arrange(abs(r)) %>% 
     kable()
 }
 
-print_loadings(efa_trust)
-print_loadings(efa_distrust)
-print_loadings(efa_company)
-```
-
-## Save EFA loadings
-
-```{r}
-list(
-  Trust                = efa_trust,
-  Distrust             = efa_distrust,
-  `Corporate Distrust` = efa_company
-) %>%
-  imap_dfr(~ unclass(.x$loadings) %>%
-              as.data.frame() %>%
-              rownames_to_column("Item") %>%
-              mutate(Subscale = .y)) %>%
-  select(Subscale, Item, everything()) %>%
-  write_csv("data/pilot/efa_loadings.csv")
+item_total_by_factor(efa_trust, efa_data)
+item_total_by_factor(efa_distrust, efa_data)
 ```

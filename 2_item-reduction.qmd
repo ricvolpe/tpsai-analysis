@@ -199,7 +199,6 @@ missing_items %>%
   knitr::kable(digits = 2)
 ```
 
-
 # Item pairs: Inter-item Correlations
 
 Next, we examine pairwise Polychoric inter-item correlations to identify redundant items. Polychoric correlations are used as they are more appropriate for ordinal Likert-scale data than Pearson correlations @boateng2018. Items correlating above .80 with another item are considered redundant, as this indicates the two items share more than 64% of their variance (*r*² = .64), leaving little unique contribution to the scale.
@@ -238,4 +237,3 @@ iia_cor_data %>%
   arrange(r) %>%
   knitr::kable(digits = 2)
 ```
-
