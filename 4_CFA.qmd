@@ -1,0 +1,143 @@
+---
+title: "Confirmatory Factor Analysis (CFA)"
+author: "Riccardo Volpato"
+format:
+  html:
+    embed-resources: true
+    toc: true
+editor: visual
+bibliography: references.bib
+execute:
+  message: false
+  warning: false
+---
+
+# Data Processing
+
+```{r}
+library(tidyverse)
+library(psych)
+library(lavaan)
+library(semTools)
+library(knitr)
+
+set.seed(8675309)
+```
+
+```{r}
+source("read_qualtrics_data.R")
+d <- load_data("data/pilot/TPSai_17+March+2026_16.59.csv")
+cols_tpsai <- d$cols_tpsai
+
+# switch to d$items_data after data collection
+cfa_data <- read_csv("data/pilot/simulated_cfa_data.csv") %>%
+  select(all_of(cols_tpsai))
+```
+
+# Confirmatory Factor Analysis
+
+Confirmatory factor analysis (CFA) tests whether a hypothesised factor structure — derived from theory and/or EFA results — replicates in the data. Unlike EFA, which lets the data reveal structure freely, CFA is a hypothesis-testing procedure: we specify in advance which items load onto which factors and which cross-loadings are constrained to zero, then evaluate how well that model fits the observed covariance matrix.
+
+We use the **WLSMV** (weighted least squares, mean- and variance-adjusted) estimator throughout. WLSMV is the recommended estimator for ordinal Likert data because it treats items as ordered-categorical rather than continuous, avoiding the underestimation of factor loadings and the distorted fit indices that arise when standard maximum-likelihood estimation is applied to non-normal ordinal responses.
+
+## Build Models
+
+```{r}
+trust_1f_model = cfa(paste("TR =~", paste(d$cols_trust, collapse = " + ")), 
+                     cfa_data, estimator = "WLSMV", ordered = TRUE)
+
+
+```
+
+## Model Fit
+
+We evaluate fit using the indices recommended by @boateng2018 and @briones2026. No single index is sufficient; good fit requires convergent evidence across indices.
+
+| Index | Good fit | Acceptable | Poor fit |
+|-------|----------|------------|----------|
+| CFI   | ≥ .95    | .90–.94    | \< .90   |
+| TLI   | ≥ .95    | .90–.94    | \< .90   |
+| RMSEA | ≤ .06    | .06–.08    | \> .10   |
+| SRMR  | ≤ .06    | .06–.08    | \> .08   |
+
+```{r}
+fitMeasures(trust_1f_model)
+```
+
+```{r}
+extract_fit <- function(fit, subscale, model_label) {
+  fi <- fitMeasures(fit, c("chisq", "df", "pvalue",
+                            "cfi", "tli",
+                            "rmsea", "rmsea.ci.lower", "rmsea.ci.upper",
+                            "srmr"))
+  tibble(
+    Subscale = subscale,
+    Model    = model_label,
+    `χ²`    = round(fi["chisq"], 2),
+    df       = fi["df"],
+    p        = round(fi["pvalue"], 3),
+    CFI      = round(fi["cfi"],   3),
+    TLI      = round(fi["tli"],   3),
+    RMSEA    = round(fi["rmsea"], 3),
+    `90% CI` = paste0("[", round(fi["rmsea.ci.lower"], 3),
+                      ", ", round(fi["rmsea.ci.upper"], 3), "]"),
+    SRMR     = round(fi["srmr"],  3)
+  )
+}
+
+bind_rows(
+  extract_fit(trust_1f_model, "Trust", "One factor"),
+) %>%
+  kable()
+```
+
+## Model Comparison
+
+When both models exist we compare them with a scaled chi-square difference test. Because WLSMV statistics are not ordinary chi-squares, `lavTestLRT()` applies the Satorra-Bentler correction appropriate for the difference test [@satorra2010].
+
+We prefer the EFA-derived model when **both** criteria are met: the difference test is significant (p \< .05) **and** ΔCFI \> .01. Using both criteria guards against retaining a complex model purely on the basis of a statistically significant but practically trivial improvement in fit [@chen2007].
+
+```{r}
+compare_models <- function(fits, label) {
+
+  if (is.null(fits$efa_derived)) {
+    return(tibble(Subscale = label, `Δχ²` = NA, `Δdf` = NA, p = NA,
+                  ΔCFI = NA, ΔRMSEA = NA,
+                  Decision = "No comparison — single-factor solution only."))
+  }
+
+  lrt <- lavTestLRT(fits$one_factor, fits$efa_derived,
+                    method = "satorra.bentler.2010",
+                    model.names = c("One-factor", "EFA-derived"))
+
+  delta_cfi   <- round(fitMeasures(fits$efa_derived, "cfi") -
+                       fitMeasures(fits$one_factor,  "cfi"), 3)
+  delta_rmsea <- round(fitMeasures(fits$efa_derived, "rmsea") -
+                       fitMeasures(fits$one_factor,  "rmsea"), 3)
+  p_val       <- lrt[2, "Pr(>Chisq)"]
+
+  tibble(
+    Subscale  = label,
+    `Δχ²`    = round(lrt[2, "Chisq diff"], 2),
+    `Δdf`    = lrt[2, "Df diff"],
+    p         = round(p_val, 3),
+    ΔCFI      = delta_cfi,
+    ΔRMSEA    = delta_rmsea,
+    Decision  = case_when(
+      p_val < .05 & delta_cfi > .01 ~
+        "Prefer EFA-derived (sig. Δχ² and ΔCFI > .01)",
+      p_val < .05 ~
+        "Sig. Δχ² but ΔCFI ≤ .01 — prefer one-factor (simpler)",
+      TRUE ~
+        "Non-sig. Δχ² — prefer one-factor (simpler)"
+    )
+  )
+}
+
+bind_rows(
+  compare_models(fits_trust,    "Trust"),
+  compare_models(fits_distrust, "Distrust"),
+  # compare_models(fits_company,  "Corporate Distrust")
+) %>%
+  kable()
+```
