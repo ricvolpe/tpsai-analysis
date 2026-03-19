@@ -2261,49 +2261,42 @@ vertical-align: -.125em;
 
 
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(psych)</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(knitr)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lavaan)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(semTools)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">readr.show_col_types =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">&quot;read_qualtrics_data.R&quot;</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">load_data</span>(<span class="st">&quot;data/pilot/TPSai_17+March+2026_16.59.csv&quot;</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>cols_tpsai <span class="ot">&lt;-</span> d<span class="sc">$</span>cols_tpsai</span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">8675309</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">&quot;read_qualtrics_data.R&quot;</span>)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">load_data</span>(<span class="st">&quot;data/pilot/TPSai_17+March+2026_16.59.csv&quot;</span>)</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>cols_tpsai <span class="ot">&lt;-</span> d<span class="sc">$</span>cols_tpsai</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># switch to d$items_data after data collection</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>cfa_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">&quot;data/pilot/simulated_cfa_data.csv&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="fu">all_of</span>(cols_tpsai))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># switch to d$items_data after data collection</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>cfa_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">&quot;data/pilot/simulated_cfa_data.csv&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="fu">all_of</span>(cols_tpsai))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Confirmatory factor analysis (CFA) tests whether a hypothesised factor structure — derived from theory and/or EFA results — replicates in the data. Unlike EFA, which lets the data reveal structure freely, CFA is a hypothesis-testing procedure: we specify in advance which items load onto which factors and which cross-loadings are constrained to zero, then evaluate how well that model fits the observed covariance matrix.</p>
 <p>We use the <strong>WLSMV</strong> (weighted least squares, mean- and variance-adjusted) estimator throughout. WLSMV is the recommended estimator for ordinal Likert data because it treats items as ordered-categorical rather than continuous, avoiding the underestimation of factor loadings and the distorted fit indices that arise when standard maximum-likelihood estimation is applied to non-normal ordinal responses.</p>
 <section id="build-models" class="level1">
 <h1>Build Models</h1>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>trust_1f_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(<span class="fu">paste</span>(<span class="st">&quot;TR =~&quot;</span>, <span class="fu">paste</span>(d<span class="sc">$</span>cols_trust, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>)),</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>                      cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>distrust_1f_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(<span class="fu">paste</span>(<span class="st">&quot;DT =~&quot;</span>, <span class="fu">paste</span>(d<span class="sc">$</span>cols_distrust, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>), <span class="st">&quot; + &quot;</span>,</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                               <span class="fu">paste</span>(d<span class="sc">$</span>cols_company, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>)),</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>                      cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>trust_1f_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(<span class="fu">paste</span>(<span class="st">&quot;TR =~&quot;</span>, <span class="fu">paste</span>(d<span class="sc">$</span>cols_trust, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>)),</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>                      cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>distrust_1f_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(<span class="fu">paste</span>(<span class="st">&quot;DT =~&quot;</span>, <span class="fu">paste</span>(d<span class="sc">$</span>cols_distrust, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>), <span class="st">&quot; + &quot;</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>                               <span class="fu">paste</span>(d<span class="sc">$</span>cols_company, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>)),</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>                      cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>trust_efa_eq <span class="ot">&lt;-</span> <span class="st">&#39;</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="st">  MR1 =~ TR_02 + TR_04 + TR_06 + TR_09 + TR_10 + TR_12 + TR_13 + TR_14 + TR_15 + TR_16 + TR_18 + TR_20 + TR_22</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="st">  MR2 =~ TR_01 + TR_03 + TR_05 + TR_07 + TR_08 + TR_11 + TR_17 + TR_19 + TR_21</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>trust_efa_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(trust_efa_eq,</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>                      cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>distrust_efa_eq <span class="ot">&lt;-</span> <span class="st">&#39;</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="st">MR1 =~ DT_01 + DT_02 + DT_04 + DT_06 + DT_10 + DT_11 + DT_13 + DT_14 + CD_04 + CD_05</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="st">MR2 =~ DT_03 + DT_05 + DT_07 + DT_08 + DT_09 + DT_12 + CD_01 + CD_02 + CD_03 + CD_06 + CD_07</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>distrust_efa_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(distrust_efa_eq,</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>                        cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>trust_efa_eq <span class="ot">&lt;-</span> <span class="st">&#39;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="st">  MR1 =~ TR_02 + TR_04 + TR_06 + TR_09 + TR_10 + TR_12 + TR_13 + TR_14 + TR_15 + TR_16 + TR_18 + TR_20 + TR_22</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="st">  MR2 =~ TR_01 + TR_03 + TR_05 + TR_07 + TR_08 + TR_11 + TR_17 + TR_19 + TR_21</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>trust_efa_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(trust_efa_eq,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>                      cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>distrust_efa_eq <span class="ot">&lt;-</span> <span class="st">&#39;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="st">MR1 =~ DT_01 + DT_02 + DT_04 + DT_06 + DT_10 + DT_11 + DT_13 + DT_14 + CD_04 + CD_05</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="st">MR2 =~ DT_03 + DT_05 + DT_07 + DT_08 + DT_09 + DT_12 + CD_01 + CD_02 + CD_03 + CD_06 + CD_07</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>distrust_efa_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(distrust_efa_eq,</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>                        cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="model-fit" class="level1">
@@ -2346,33 +2339,33 @@ vertical-align: -.125em;
 </tbody>
 </table>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>extract_fit <span class="ot">&lt;-</span> <span class="cf">function</span>(fit, subscale, model_label) {</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  fi <span class="ot">&lt;-</span> <span class="fu">fitMeasures</span>(fit, <span class="fu">c</span>(<span class="st">&quot;chisq&quot;</span>, <span class="st">&quot;df&quot;</span>, <span class="st">&quot;pvalue&quot;</span>,</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;cfi&quot;</span>, <span class="st">&quot;tli&quot;</span>,</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;rmsea&quot;</span>, <span class="st">&quot;rmsea.ci.lower&quot;</span>, <span class="st">&quot;rmsea.ci.upper&quot;</span>,</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;srmr&quot;</span>))</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">Subscale =</span> subscale,</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">Model    =</span> model_label,</span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">χ²</span><span class="st">`</span>    <span class="ot">=</span> <span class="fu">round</span>(fi[<span class="st">&quot;chisq&quot;</span>], <span class="dv">2</span>),</span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">df       =</span> fi[<span class="st">&quot;df&quot;</span>],</span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># p        = round(fi[&quot;pvalue&quot;], 3),</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">CFI      =</span> <span class="fu">round</span>(fi[<span class="st">&quot;cfi&quot;</span>],   <span class="dv">3</span>),</span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">TLI      =</span> <span class="fu">round</span>(fi[<span class="st">&quot;tli&quot;</span>],   <span class="dv">3</span>),</span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">RMSEA    =</span> <span class="fu">round</span>(fi[<span class="st">&quot;rmsea&quot;</span>], <span class="dv">3</span>),</span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">90% CI</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">paste0</span>(<span class="st">&quot;[&quot;</span>, <span class="fu">round</span>(fi[<span class="st">&quot;rmsea.ci.lower&quot;</span>], <span class="dv">3</span>),</span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>                      <span class="st">&quot;, &quot;</span>, <span class="fu">round</span>(fi[<span class="st">&quot;rmsea.ci.upper&quot;</span>], <span class="dv">3</span>), <span class="st">&quot;]&quot;</span>),</span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">SRMR     =</span> <span class="fu">round</span>(fi[<span class="st">&quot;srmr&quot;</span>],  <span class="dv">3</span>)</span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_rows</span>(</span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(trust_1f_model, <span class="st">&quot;Trust&quot;</span>, <span class="st">&quot;1F&quot;</span>),</span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(trust_efa_model, <span class="st">&quot;Trust&quot;</span>, <span class="st">&quot;EFA&quot;</span>),</span>
-<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(distrust_1f_model, <span class="st">&quot;Disrust&quot;</span>, <span class="st">&quot;1F&quot;</span>),</span>
-<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(distrust_efa_model, <span class="st">&quot;Disrust&quot;</span>, <span class="st">&quot;EFA&quot;</span>),</span>
-<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
-<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>extract_fit <span class="ot">&lt;-</span> <span class="cf">function</span>(fit, subscale, model_label) {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  fi <span class="ot">&lt;-</span> <span class="fu">fitMeasures</span>(fit, <span class="fu">c</span>(<span class="st">&quot;chisq&quot;</span>, <span class="st">&quot;df&quot;</span>, <span class="st">&quot;pvalue&quot;</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;cfi&quot;</span>, <span class="st">&quot;tli&quot;</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;rmsea&quot;</span>, <span class="st">&quot;rmsea.ci.lower&quot;</span>, <span class="st">&quot;rmsea.ci.upper&quot;</span>,</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;srmr&quot;</span>))</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">Subscale =</span> subscale,</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">Model    =</span> model_label,</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">χ²</span><span class="st">`</span>    <span class="ot">=</span> <span class="fu">round</span>(fi[<span class="st">&quot;chisq&quot;</span>], <span class="dv">2</span>),</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">df       =</span> fi[<span class="st">&quot;df&quot;</span>],</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># p        = round(fi[&quot;pvalue&quot;], 3),</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">CFI      =</span> <span class="fu">round</span>(fi[<span class="st">&quot;cfi&quot;</span>],   <span class="dv">3</span>),</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">TLI      =</span> <span class="fu">round</span>(fi[<span class="st">&quot;tli&quot;</span>],   <span class="dv">3</span>),</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">RMSEA    =</span> <span class="fu">round</span>(fi[<span class="st">&quot;rmsea&quot;</span>], <span class="dv">3</span>),</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">90% CI</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">paste0</span>(<span class="st">&quot;[&quot;</span>, <span class="fu">round</span>(fi[<span class="st">&quot;rmsea.ci.lower&quot;</span>], <span class="dv">3</span>),</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>                      <span class="st">&quot;, &quot;</span>, <span class="fu">round</span>(fi[<span class="st">&quot;rmsea.ci.upper&quot;</span>], <span class="dv">3</span>), <span class="st">&quot;]&quot;</span>),</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">SRMR     =</span> <span class="fu">round</span>(fi[<span class="st">&quot;srmr&quot;</span>],  <span class="dv">3</span>)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_rows</span>(</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(trust_1f_model, <span class="st">&quot;Trust&quot;</span>, <span class="st">&quot;1F&quot;</span>),</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(trust_efa_model, <span class="st">&quot;Trust&quot;</span>, <span class="st">&quot;EFA&quot;</span>),</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(distrust_1f_model, <span class="st">&quot;Disrust&quot;</span>, <span class="st">&quot;1F&quot;</span>),</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(distrust_efa_model, <span class="st">&quot;Disrust&quot;</span>, <span class="st">&quot;EFA&quot;</span>),</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <colgroup>
@@ -2451,7 +2444,7 @@ vertical-align: -.125em;
 <p>We can also compare models with a scaled chi-square difference test.</p>
 <p>We prefer more complex models when <strong>both</strong> criteria are met: the difference test is significant (p &lt; .05) and ΔCFI &gt; .01. Using both criteria guards against retaining a complex model purely on the basis of a statistically significant but practically trivial improvement in fit.</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lavTestLRT</span>(trust_1f_model, trust_efa_model, <span class="at">model.names =</span> <span class="fu">c</span>(<span class="st">&quot;1F&quot;</span>, <span class="st">&quot;EFA&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lavTestLRT</span>(trust_1f_model, trust_efa_model, <span class="at">model.names =</span> <span class="fu">c</span>(<span class="st">&quot;1F&quot;</span>, <span class="st">&quot;EFA&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 Scaled Chi-Squared Difference Test (method = &quot;satorra.2000&quot;)
@@ -2469,7 +2462,7 @@ Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&
 </div>
 </div>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lavTestLRT</span>(distrust_1f_model, distrust_efa_model, <span class="at">model.names =</span> <span class="fu">c</span>(<span class="st">&quot;1F&quot;</span>, <span class="st">&quot;EFA&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lavTestLRT</span>(distrust_1f_model, distrust_efa_model, <span class="at">model.names =</span> <span class="fu">c</span>(<span class="st">&quot;1F&quot;</span>, <span class="st">&quot;EFA&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 Scaled Chi-Squared Difference Test (method = &quot;satorra.2000&quot;)

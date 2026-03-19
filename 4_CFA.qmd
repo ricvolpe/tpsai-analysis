@@ -12,7 +12,7 @@ execute:
   warning: false
 ---
 
-```{r}
+```{r, echo=FALSE}
 library(tidyverse)
 library(psych)
 library(knitr)
@@ -23,6 +23,8 @@ set.seed(8675309)
 ```
 
 ```{r}
+options(readr.show_col_types = FALSE)
+
 source("read_qualtrics_data.R")
 d <- load_data("data/pilot/TPSai_17+March+2026_16.59.csv")
 cols_tpsai <- d$cols_tpsai

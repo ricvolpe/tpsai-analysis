@@ -12,7 +12,7 @@ execute:
   warning: false
 ---
 
-```{r}
+```{r, echo=FALSE}
 library(tidyverse)
 library(gtools)
 library(psych)
@@ -23,6 +23,8 @@ set.seed(8675309) # makes sure random numbers are reproducible
 ```
 
 ```{r}
+options(readr.show_col_types = FALSE)
+
 source("read_qualtrics_data.R")
 d <- load_data("data/pilot/TPSai_17+March+2026_16.59.csv")
 cols_tpsai <- d$cols_tpsai
@@ -205,7 +207,7 @@ efa_distrust <- fa(R_distrust_2,
 ## Evaluating Factors
 
 ```{r}
-plot_loadings <- function(efa, cutoff = 0.3) {
+plot_loadings <- function(efa, cutoff = 0.15) {
   
   loads <- efa$loadings |>
     unclass() |>
@@ -230,7 +232,7 @@ plot_loadings <- function(efa, cutoff = 0.3) {
     ggplot(aes(x = factor, y = item, fill = loading)) +
     geom_tile() +
     geom_text(aes(
-      label  = ifelse(abs(loading) > cutoff, round(loading, 2), ""),
+      label  = round(loading, 2),
       colour = abs(loading) > 0.5
     )) +
     scale_colour_manual(values = c("TRUE" = "white", "FALSE" = "black"), guide = "none") +
@@ -244,11 +246,11 @@ plot_loadings(efa_trust)
 plot_loadings(efa_distrust)
 ```
 
-Above we plot factor loadings for the different EFA that we ran. We are looking for a factor structure that is robust and simple, that is loadings have high values in one factor only [@buchanan2014].
+We evaluate factors visually through the heat-map above. We are looking for a factor structure that is robust and simple, that is loadings have high values in one factor only [@buchanan2014].
 
-More specifically, we would like a solution without "bad" items that:
+More specifically, we would like a solution where each factor has at least 3 items and there are no "bad" items that:
 
--   have a low primary loading (\< 0.5)
+-   have a very low primary loading (\< 0.3)
 
 -   have a small difference between primary and secondary loading (\< 0.15)
 
