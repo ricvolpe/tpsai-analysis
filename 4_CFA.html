@@ -2228,16 +2228,8 @@ vertical-align: -.125em;
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#data-processing" id="toc-data-processing" class="nav-link active" data-scroll-target="#data-processing">Data Processing</a></li>
-  <li><a href="#confirmatory-factor-analysis" id="toc-confirmatory-factor-analysis" class="nav-link" data-scroll-target="#confirmatory-factor-analysis">Confirmatory Factor Analysis</a>
-  <ul class="collapse">
-  <li><a href="#model-specification" id="toc-model-specification" class="nav-link" data-scroll-target="#model-specification">Model Specification</a></li>
-  <li><a href="#model-estimation" id="toc-model-estimation" class="nav-link" data-scroll-target="#model-estimation">Model Estimation</a></li>
+  <li><a href="#build-models" id="toc-build-models" class="nav-link active" data-scroll-target="#build-models">Build Models</a></li>
   <li><a href="#model-fit" id="toc-model-fit" class="nav-link" data-scroll-target="#model-fit">Model Fit</a></li>
-  <li><a href="#standardised-factor-loadings" id="toc-standardised-factor-loadings" class="nav-link" data-scroll-target="#standardised-factor-loadings">Standardised Factor Loadings</a></li>
-  <li><a href="#reliability" id="toc-reliability" class="nav-link" data-scroll-target="#reliability">Reliability</a></li>
-  </ul></li>
-  <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary">Summary</a></li>
   </ul>
 </nav>
 </div>
@@ -2268,14 +2260,12 @@ vertical-align: -.125em;
 </header>
 
 
-<section id="data-processing" class="level1">
-<h1>Data Processing</h1>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(psych)</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lavaan)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(semTools)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(knitr)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(knitr)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lavaan)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(semTools)</span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">8675309</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -2285,155 +2275,123 @@ vertical-align: -.125em;
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>cols_tpsai <span class="ot">&lt;-</span> d<span class="sc">$</span>cols_tpsai</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co"># switch to d$items_data after data collection</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>factors_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">&quot;data/pilot/simulated_item_data.csv&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>cfa_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">&quot;data/pilot/simulated_cfa_data.csv&quot;</span>) <span class="sc">%&gt;%</span></span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="fu">all_of</span>(cols_tpsai))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-</section>
-<section id="confirmatory-factor-analysis" class="level1">
-<h1>Confirmatory Factor Analysis</h1>
-<p>Confirmatory factor analysis (CFA) tests whether a hypothesised factor structure — derived from theory and the EFA results — replicates in the data. Unlike EFA, which lets the data reveal structure freely, CFA is a hypothesis-testing procedure: we specify in advance which items load onto which factors and which cross-loadings are constrained to zero, then evaluate how well that model fits the observed covariance matrix <span class="citation" data-cites="brown2015 boateng2018">(<a href="#ref-brown2015" role="doc-biblioref"><strong>brown2015?</strong></a>; <a href="#ref-boateng2018" role="doc-biblioref">Boateng et al. 2018</a>)</span>.</p>
-<p>We run three separate CFAs, one per subscale (Trust, Distrust, and Corporate Distrust), mirroring the EFA approach. The factor structure tested in each CFA — that is, the number of factors and the assignment of items to factors — is taken directly from the EFA solution. This two-step strategy (EFA on an initial sample, CFA on a new sample) is standard practice in scale development and guards against treating an exploratory solution as confirmed without independent verification <span class="citation" data-cites="schulenberg2010 boateng2018">(<a href="#ref-schulenberg2010" role="doc-biblioref"><strong>schulenberg2010?</strong></a>; <a href="#ref-boateng2018" role="doc-biblioref">Boateng et al. 2018</a>)</span>.</p>
-<section id="model-specification" class="level2">
-<h2 class="anchored" data-anchor-id="model-specification">Model Specification</h2>
-<p>CFA models are specified using <code>lavaan</code> syntax <span class="citation" data-cites="rosseel2012">(<a href="#ref-rosseel2012" role="doc-biblioref"><strong>rosseel2012?</strong></a>)</span>. Each factor is defined by the items that loaded on it in the EFA (loadings ≥ .30). When a subscale produced a single factor in the EFA, a one-factor CFA is specified; when it produced two or more factors, those factors are allowed to correlate freely (oblique solution), consistent with the oblimin rotation used in the EFA.</p>
-<p>We use the <strong>WLSMV</strong> (weighted least squares mean- and variance-adjusted) estimator throughout. WLSMV is the recommended estimator for ordinal Likert data because it treats items as ordered-categorical rather than continuous, avoiding the underestimation of factor loadings and distortion of fit indices that can occur with standard maximum-likelihood estimation on non-normal ordinal responses <span class="citation" data-cites="flora2004 briones2026">(<a href="#ref-flora2004" role="doc-biblioref"><strong>flora2004?</strong></a>; <a href="#ref-briones2026" role="doc-biblioref"><strong>briones2026?</strong></a>)</span>.</p>
+<p>Confirmatory factor analysis (CFA) tests whether a hypothesised factor structure — derived from theory and/or EFA results — replicates in the data. Unlike EFA, which lets the data reveal structure freely, CFA is a hypothesis-testing procedure: we specify in advance which items load onto which factors and which cross-loadings are constrained to zero, then evaluate how well that model fits the observed covariance matrix.</p>
+<p>We use the <strong>WLSMV</strong> (weighted least squares, mean- and variance-adjusted) estimator throughout. WLSMV is the recommended estimator for ordinal Likert data because it treats items as ordered-categorical rather than continuous, avoiding the underestimation of factor loadings and the distorted fit indices that arise when standard maximum-likelihood estimation is applied to non-normal ordinal responses.</p>
+<section id="build-models" class="level1">
+<h1>Build Models</h1>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Helper: build a lavaan one-factor model string from a vector of item names</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>one_factor_model <span class="ot">&lt;-</span> <span class="cf">function</span>(items, <span class="at">factor_name =</span> <span class="st">&quot;F&quot;</span>) {</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">paste0</span>(factor_name, <span class="st">&quot; =~ &quot;</span>, <span class="fu">paste</span>(items, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>))</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Helper: build a lavaan multi-factor model string from a named list</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># e.g. list(F1 = c(&quot;i1&quot;,&quot;i2&quot;), F2 = c(&quot;i3&quot;,&quot;i4&quot;))</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>multi_factor_model <span class="ot">&lt;-</span> <span class="cf">function</span>(factor_list) {</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">paste</span>(</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">imap_chr</span>(factor_list, <span class="sc">~</span> <span class="fu">paste0</span>(.y, <span class="st">&quot; =~ &quot;</span>, <span class="fu">paste</span>(.x, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>))),</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">collapse =</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>trust_1f_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(<span class="fu">paste</span>(<span class="st">&quot;TR =~&quot;</span>, <span class="fu">paste</span>(d<span class="sc">$</span>cols_trust, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>)),</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>                      cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>distrust_1f_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(<span class="fu">paste</span>(<span class="st">&quot;DT =~&quot;</span>, <span class="fu">paste</span>(d<span class="sc">$</span>cols_distrust, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>), <span class="st">&quot; + &quot;</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                               <span class="fu">paste</span>(d<span class="sc">$</span>cols_company, <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>)),</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>                      cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------------------</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Specify models using the item groupings from the EFA.</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Replace the item vectors below with the items that loaded on each</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># factor in your EFA output (loadings &gt;= .30, no substantial</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># cross-loadings). If a subscale yielded a single factor, use</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co"># one_factor_model(); if it yielded two factors, use</span></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># multi_factor_model() with a named list.</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Example (single factor):</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co">#   model_trust &lt;- one_factor_model(d$cols_trust, &quot;Trust&quot;)</span></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Example (two factors):</span></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co">#   model_distrust &lt;- multi_factor_model(list(</span></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="co">#     Distrust_F1 = c(&quot;item1&quot;, &quot;item2&quot;, &quot;item3&quot;),</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="co">#     Distrust_F2 = c(&quot;item4&quot;, &quot;item5&quot;, &quot;item6&quot;)</span></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="co">#   ))</span></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="co"># -----------------------------------------------------------------</span></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>model_trust    <span class="ot">&lt;-</span> <span class="fu">one_factor_model</span>(d<span class="sc">$</span>cols_trust,    <span class="st">&quot;Trust&quot;</span>)</span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>model_distrust <span class="ot">&lt;-</span> <span class="fu">one_factor_model</span>(d<span class="sc">$</span>cols_distrust, <span class="st">&quot;Distrust&quot;</span>)</span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>model_company  <span class="ot">&lt;-</span> <span class="fu">one_factor_model</span>(d<span class="sc">$</span>cols_company,  <span class="st">&quot;CorpDistrust&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>trust_efa_eq <span class="ot">&lt;-</span> <span class="st">&#39;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="st">  MR1 =~ TR_02 + TR_04 + TR_06 + TR_09 + TR_10 + TR_12 + TR_13 + TR_14 + TR_15 + TR_16 + TR_18 + TR_20 + TR_22</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="st">  MR2 =~ TR_01 + TR_03 + TR_05 + TR_07 + TR_08 + TR_11 + TR_17 + TR_19 + TR_21</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>trust_efa_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(trust_efa_eq,</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>                      cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>distrust_efa_eq <span class="ot">&lt;-</span> <span class="st">&#39;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="st">MR1 =~ DT_01 + DT_02 + DT_04 + DT_06 + DT_10 + DT_11 + DT_13 + DT_14 + CD_04 + CD_05</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="st">MR2 =~ DT_03 + DT_05 + DT_07 + DT_08 + DT_09 + DT_12 + CD_01 + CD_02 + CD_03 + CD_06 + CD_07</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="st">&#39;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>distrust_efa_model <span class="ot">&lt;-</span> <span class="fu">cfa</span>(distrust_efa_eq,</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>                        cfa_data, <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="model-estimation" class="level2">
-<h2 class="anchored" data-anchor-id="model-estimation">Model Estimation</h2>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>fit_trust    <span class="ot">&lt;-</span> <span class="fu">cfa</span>(model_trust,    <span class="at">data =</span> factors_data,</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>                    <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>fit_distrust <span class="ot">&lt;-</span> <span class="fu">cfa</span>(model_distrust, <span class="at">data =</span> factors_data,</span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                    <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>fit_company  <span class="ot">&lt;-</span> <span class="fu">cfa</span>(model_company,  <span class="at">data =</span> factors_data,</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>                    <span class="at">estimator =</span> <span class="st">&quot;WLSMV&quot;</span>, <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-</section>
-<section id="model-fit" class="level2">
-<h2 class="anchored" data-anchor-id="model-fit">Model Fit</h2>
-<p>We evaluate model fit using the indices recommended by <span class="citation" data-cites="boateng2018">Boateng et al. (<a href="#ref-boateng2018" role="doc-biblioref">2018</a>)</span> and <span class="citation" data-cites="briones2026">(<a href="#ref-briones2026" role="doc-biblioref"><strong>briones2026?</strong></a>)</span>. No single index is sufficient on its own; good fit requires convergent evidence across several indices.</p>
+<section id="model-fit" class="level1">
+<h1>Model Fit</h1>
+<p>We evaluate fit using the indices recommended by <span class="citation" data-cites="boateng2018">Boateng et al. (<a href="#ref-boateng2018" role="doc-biblioref">2018</a>)</span> and <span class="citation" data-cites="briones2026">(<a href="#ref-briones2026" role="doc-biblioref"><strong>briones2026?</strong></a>)</span>. No single index is sufficient; good fit requires convergent evidence across indices.</p>
 <table class="caption-top table">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
 <thead>
 <tr class="header">
 <th>Index</th>
-<th>Good fit threshold</th>
-<th>Rationale</th>
+<th>Good fit</th>
+<th>Acceptable</th>
+<th>Poor fit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td>CFI</td>
 <td>≥ .95</td>
-<td>Compares model fit to a null (no-factor) baseline</td>
+<td>.90–.94</td>
+<td>&lt; .90</td>
 </tr>
 <tr class="even">
 <td>TLI</td>
 <td>≥ .95</td>
-<td>Like CFI but penalises model complexity</td>
+<td>.90–.94</td>
+<td>&lt; .90</td>
 </tr>
 <tr class="odd">
 <td>RMSEA</td>
-<td>≤ .06 (≤ .08 acceptable)</td>
-<td>Average misfit per degree of freedom</td>
+<td>≤ .06</td>
+<td>.06–.08</td>
+<td>&gt; .10</td>
 </tr>
 <tr class="even">
 <td>SRMR</td>
-<td>≤ .08</td>
-<td>Average absolute residual correlation</td>
+<td>≤ .06</td>
+<td>.06–.08</td>
+<td>&gt; .08</td>
 </tr>
 </tbody>
 </table>
-<p>The chi-square statistic is reported for completeness but is not used as a primary decision criterion because it is sensitive to sample size and tends to be significant even when the model is a reasonable approximation of the data <span class="citation" data-cites="boateng2018 buchanan2014">(<a href="#ref-boateng2018" role="doc-biblioref">Boateng et al. 2018</a>; <a href="#ref-buchanan2014" role="doc-biblioref">Buchanan, Valentine, and Schulenberg 2014</a>)</span>.</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract the fit indices we care about from a fitted lavaan object</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>extract_fit <span class="ot">&lt;-</span> <span class="cf">function</span>(fit, label) {</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  fi <span class="ot">&lt;-</span> <span class="fu">fitMeasures</span>(fit, <span class="fu">c</span>(<span class="st">&quot;chisq&quot;</span>, <span class="st">&quot;df&quot;</span>, <span class="st">&quot;pvalue&quot;</span>,</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;cfi&quot;</span>, <span class="st">&quot;tli&quot;</span>, <span class="st">&quot;rmsea&quot;</span>,</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;rmsea.ci.lower&quot;</span>, <span class="st">&quot;rmsea.ci.upper&quot;</span>,</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;srmr&quot;</span>))</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">Subscale          =</span> label,</span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">χ²</span><span class="st">`</span>             <span class="ot">=</span> <span class="fu">round</span>(fi[<span class="st">&quot;chisq&quot;</span>], <span class="dv">2</span>),</span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">df                =</span> fi[<span class="st">&quot;df&quot;</span>],</span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">p                 =</span> <span class="fu">round</span>(fi[<span class="st">&quot;pvalue&quot;</span>], <span class="dv">3</span>),</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">CFI               =</span> <span class="fu">round</span>(fi[<span class="st">&quot;cfi&quot;</span>], <span class="dv">3</span>),</span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">TLI               =</span> <span class="fu">round</span>(fi[<span class="st">&quot;tli&quot;</span>], <span class="dv">3</span>),</span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">RMSEA             =</span> <span class="fu">round</span>(fi[<span class="st">&quot;rmsea&quot;</span>], <span class="dv">3</span>),</span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">90% CI</span><span class="st">`</span>          <span class="ot">=</span> <span class="fu">paste0</span>(<span class="st">&quot;[&quot;</span>, <span class="fu">round</span>(fi[<span class="st">&quot;rmsea.ci.lower&quot;</span>], <span class="dv">3</span>),</span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>                               <span class="st">&quot;, &quot;</span>, <span class="fu">round</span>(fi[<span class="st">&quot;rmsea.ci.upper&quot;</span>], <span class="dv">3</span>), <span class="st">&quot;]&quot;</span>),</span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">SRMR              =</span> <span class="fu">round</span>(fi[<span class="st">&quot;srmr&quot;</span>], <span class="dv">3</span>)</span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_rows</span>(</span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(fit_trust,    <span class="st">&quot;Trust&quot;</span>),</span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(fit_distrust, <span class="st">&quot;Distrust&quot;</span>),</span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(fit_company,  <span class="st">&quot;Corporate Distrust&quot;</span>)</span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>extract_fit <span class="ot">&lt;-</span> <span class="cf">function</span>(fit, subscale, model_label) {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  fi <span class="ot">&lt;-</span> <span class="fu">fitMeasures</span>(fit, <span class="fu">c</span>(<span class="st">&quot;chisq&quot;</span>, <span class="st">&quot;df&quot;</span>, <span class="st">&quot;pvalue&quot;</span>,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;cfi&quot;</span>, <span class="st">&quot;tli&quot;</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;rmsea&quot;</span>, <span class="st">&quot;rmsea.ci.lower&quot;</span>, <span class="st">&quot;rmsea.ci.upper&quot;</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;srmr&quot;</span>))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">Subscale =</span> subscale,</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">Model    =</span> model_label,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">χ²</span><span class="st">`</span>    <span class="ot">=</span> <span class="fu">round</span>(fi[<span class="st">&quot;chisq&quot;</span>], <span class="dv">2</span>),</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">df       =</span> fi[<span class="st">&quot;df&quot;</span>],</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># p        = round(fi[&quot;pvalue&quot;], 3),</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">CFI      =</span> <span class="fu">round</span>(fi[<span class="st">&quot;cfi&quot;</span>],   <span class="dv">3</span>),</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">TLI      =</span> <span class="fu">round</span>(fi[<span class="st">&quot;tli&quot;</span>],   <span class="dv">3</span>),</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">RMSEA    =</span> <span class="fu">round</span>(fi[<span class="st">&quot;rmsea&quot;</span>], <span class="dv">3</span>),</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">90% CI</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">paste0</span>(<span class="st">&quot;[&quot;</span>, <span class="fu">round</span>(fi[<span class="st">&quot;rmsea.ci.lower&quot;</span>], <span class="dv">3</span>),</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>                      <span class="st">&quot;, &quot;</span>, <span class="fu">round</span>(fi[<span class="st">&quot;rmsea.ci.upper&quot;</span>], <span class="dv">3</span>), <span class="st">&quot;]&quot;</span>),</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">SRMR     =</span> <span class="fu">round</span>(fi[<span class="st">&quot;srmr&quot;</span>],  <span class="dv">3</span>)</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_rows</span>(</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(trust_1f_model, <span class="st">&quot;Trust&quot;</span>, <span class="st">&quot;1F&quot;</span>),</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(trust_efa_model, <span class="st">&quot;Trust&quot;</span>, <span class="st">&quot;EFA&quot;</span>),</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(distrust_1f_model, <span class="st">&quot;Disrust&quot;</span>, <span class="st">&quot;1F&quot;</span>),</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">extract_fit</span>(distrust_efa_model, <span class="st">&quot;Disrust&quot;</span>, <span class="st">&quot;EFA&quot;</span>),</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <colgroup>
-<col style="width: 26%">
-<col style="width: 10%">
-<col style="width: 5%">
-<col style="width: 4%">
-<col style="width: 8%">
-<col style="width: 8%">
-<col style="width: 8%">
-<col style="width: 20%">
-<col style="width: 8%">
+<col style="width: 13%">
+<col style="width: 9%">
+<col style="width: 12%">
+<col style="width: 6%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 22%">
+<col style="width: 9%">
 </colgroup>
 <thead>
 <tr class="header">
 <th style="text-align: left;">Subscale</th>
+<th style="text-align: left;">Model</th>
 <th style="text-align: right;">χ²</th>
 <th style="text-align: right;">df</th>
-<th style="text-align: right;">p</th>
 <th style="text-align: right;">CFI</th>
 <th style="text-align: right;">TLI</th>
 <th style="text-align: right;">RMSEA</th>
@@ -2444,569 +2402,96 @@ vertical-align: -.125em;
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Trust</td>
-<td style="text-align: right;">3357.85</td>
+<td style="text-align: left;">1F</td>
+<td style="text-align: right;">5696.62</td>
 <td style="text-align: right;">209</td>
-<td style="text-align: right;">NA</td>
-<td style="text-align: right;">0.759</td>
-<td style="text-align: right;">0.733</td>
-<td style="text-align: right;">0.390</td>
-<td style="text-align: left;">[0.379, 0.402]</td>
-<td style="text-align: right;">0.279</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: right;">794.72</td>
-<td style="text-align: right;">77</td>
-<td style="text-align: right;">NA</td>
-<td style="text-align: right;">0.838</td>
-<td style="text-align: right;">0.809</td>
-<td style="text-align: right;">0.307</td>
-<td style="text-align: left;">[0.288, 0.326]</td>
-<td style="text-align: right;">0.230</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Corporate Distrust</td>
-<td style="text-align: right;">103.38</td>
-<td style="text-align: right;">14</td>
-<td style="text-align: right;">NA</td>
-<td style="text-align: right;">0.788</td>
-<td style="text-align: right;">0.682</td>
-<td style="text-align: right;">0.254</td>
-<td style="text-align: left;">[0.209, 0.301]</td>
-<td style="text-align: right;">0.184</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</section>
-<section id="standardised-factor-loadings" class="level2">
-<h2 class="anchored" data-anchor-id="standardised-factor-loadings">Standardised Factor Loadings</h2>
-<p>Standardised factor loadings (λ) indicate how strongly each item relates to its latent factor. Values ≥ .40 are considered acceptable, with ≥ .50 preferred <span class="citation" data-cites="boateng2018">(<a href="#ref-boateng2018" role="doc-biblioref">Boateng et al. 2018</a>)</span>. All loadings should be statistically significant (p &lt; .05).</p>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>print_loadings_cfa <span class="ot">&lt;-</span> <span class="cf">function</span>(fit, label) {</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">standardizedSolution</span>(fit) <span class="sc">%&gt;%</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(op <span class="sc">==</span> <span class="st">&quot;=~&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(<span class="at">Factor =</span> lhs, <span class="at">Item =</span> rhs, λ <span class="ot">=</span> est.std, <span class="at">SE =</span> se, z, <span class="at">p =</span> pvalue) <span class="sc">%&gt;%</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>      <span class="at">Subscale =</span> label,</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">across</span>(<span class="fu">where</span>(is.numeric), <span class="sc">~</span> <span class="fu">round</span>(.x, <span class="dv">3</span>))</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(Subscale, Factor, Item, λ, SE, z, p)</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_rows</span>(</span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print_loadings_cfa</span>(fit_trust,    <span class="st">&quot;Trust&quot;</span>),</span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print_loadings_cfa</span>(fit_distrust, <span class="st">&quot;Distrust&quot;</span>),</span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print_loadings_cfa</span>(fit_company,  <span class="st">&quot;Corporate Distrust&quot;</span>)</span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output-display">
-<table class="caption-top table table-sm table-striped small">
-<colgroup>
-<col style="width: 29%">
-<col style="width: 20%">
-<col style="width: 9%">
-<col style="width: 10%">
-<col style="width: 9%">
-<col style="width: 12%">
-<col style="width: 9%">
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: left;">Subscale</th>
-<th style="text-align: left;">Factor</th>
-<th style="text-align: left;">Item</th>
-<th style="text-align: right;">λ</th>
-<th style="text-align: right;">SE</th>
-<th style="text-align: right;">z</th>
-<th style="text-align: right;">p</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_01</td>
+<td style="text-align: right;">0.656</td>
 <td style="text-align: right;">0.619</td>
-<td style="text-align: right;">0.056</td>
-<td style="text-align: right;">11.005</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_02</td>
-<td style="text-align: right;">-0.832</td>
-<td style="text-align: right;">0.032</td>
-<td style="text-align: right;">-25.986</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_03</td>
-<td style="text-align: right;">-0.801</td>
-<td style="text-align: right;">0.039</td>
-<td style="text-align: right;">-20.561</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_04</td>
-<td style="text-align: right;">-0.686</td>
-<td style="text-align: right;">0.053</td>
-<td style="text-align: right;">-12.846</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_05</td>
-<td style="text-align: right;">-0.556</td>
-<td style="text-align: right;">0.063</td>
-<td style="text-align: right;">-8.792</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_06</td>
-<td style="text-align: right;">0.550</td>
-<td style="text-align: right;">0.056</td>
-<td style="text-align: right;">9.877</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_07</td>
-<td style="text-align: right;">0.258</td>
-<td style="text-align: right;">0.078</td>
-<td style="text-align: right;">3.301</td>
-<td style="text-align: right;">0.001</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_08</td>
-<td style="text-align: right;">-0.324</td>
-<td style="text-align: right;">0.077</td>
-<td style="text-align: right;">-4.209</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_09</td>
-<td style="text-align: right;">-0.301</td>
-<td style="text-align: right;">0.078</td>
-<td style="text-align: right;">-3.866</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_10</td>
-<td style="text-align: right;">0.503</td>
-<td style="text-align: right;">0.061</td>
-<td style="text-align: right;">8.192</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_11</td>
-<td style="text-align: right;">0.236</td>
-<td style="text-align: right;">0.080</td>
-<td style="text-align: right;">2.949</td>
-<td style="text-align: right;">0.003</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_12</td>
-<td style="text-align: right;">-0.706</td>
-<td style="text-align: right;">0.045</td>
-<td style="text-align: right;">-15.706</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_13</td>
-<td style="text-align: right;">-0.878</td>
-<td style="text-align: right;">0.026</td>
-<td style="text-align: right;">-33.801</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_14</td>
-<td style="text-align: right;">-0.820</td>
-<td style="text-align: right;">0.038</td>
-<td style="text-align: right;">-21.809</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_15</td>
-<td style="text-align: right;">-0.905</td>
-<td style="text-align: right;">0.021</td>
-<td style="text-align: right;">-42.657</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_16</td>
-<td style="text-align: right;">-0.892</td>
-<td style="text-align: right;">0.025</td>
-<td style="text-align: right;">-36.349</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_17</td>
-<td style="text-align: right;">0.230</td>
-<td style="text-align: right;">0.084</td>
-<td style="text-align: right;">2.723</td>
-<td style="text-align: right;">0.006</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_18</td>
-<td style="text-align: right;">-0.661</td>
-<td style="text-align: right;">0.049</td>
-<td style="text-align: right;">-13.538</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_19</td>
-<td style="text-align: right;">-0.839</td>
-<td style="text-align: right;">0.033</td>
-<td style="text-align: right;">-25.336</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_20</td>
-<td style="text-align: right;">-0.855</td>
-<td style="text-align: right;">0.026</td>
-<td style="text-align: right;">-32.275</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_21</td>
-<td style="text-align: right;">0.571</td>
-<td style="text-align: right;">0.059</td>
-<td style="text-align: right;">9.755</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">Trust</td>
-<td style="text-align: left;">TR_22</td>
-<td style="text-align: right;">-0.679</td>
-<td style="text-align: right;">0.049</td>
-<td style="text-align: right;">-13.746</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_01</td>
-<td style="text-align: right;">0.885</td>
-<td style="text-align: right;">0.031</td>
-<td style="text-align: right;">28.341</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_02</td>
-<td style="text-align: right;">0.856</td>
-<td style="text-align: right;">0.035</td>
-<td style="text-align: right;">24.477</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_03</td>
-<td style="text-align: right;">0.225</td>
-<td style="text-align: right;">0.086</td>
-<td style="text-align: right;">2.613</td>
-<td style="text-align: right;">0.009</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_04</td>
-<td style="text-align: right;">0.833</td>
-<td style="text-align: right;">0.038</td>
-<td style="text-align: right;">21.926</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_05</td>
+<td style="text-align: right;">0.296</td>
+<td style="text-align: left;">[0.29, 0.303]</td>
 <td style="text-align: right;">0.239</td>
-<td style="text-align: right;">0.099</td>
-<td style="text-align: right;">2.421</td>
-<td style="text-align: right;">0.015</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_06</td>
-<td style="text-align: right;">-0.527</td>
-<td style="text-align: right;">0.070</td>
-<td style="text-align: right;">-7.513</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_07</td>
-<td style="text-align: right;">-0.421</td>
-<td style="text-align: right;">0.078</td>
-<td style="text-align: right;">-5.414</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_08</td>
-<td style="text-align: right;">0.043</td>
-<td style="text-align: right;">0.089</td>
-<td style="text-align: right;">0.487</td>
-<td style="text-align: right;">0.626</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_09</td>
-<td style="text-align: right;">0.358</td>
-<td style="text-align: right;">0.086</td>
-<td style="text-align: right;">4.162</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_10</td>
-<td style="text-align: right;">0.832</td>
-<td style="text-align: right;">0.039</td>
-<td style="text-align: right;">21.297</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_11</td>
-<td style="text-align: right;">0.832</td>
-<td style="text-align: right;">0.036</td>
-<td style="text-align: right;">22.878</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_12</td>
-<td style="text-align: right;">0.489</td>
-<td style="text-align: right;">0.078</td>
-<td style="text-align: right;">6.309</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_13</td>
-<td style="text-align: right;">-0.943</td>
-<td style="text-align: right;">0.020</td>
-<td style="text-align: right;">-46.103</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: left;">DT_14</td>
-<td style="text-align: right;">0.596</td>
-<td style="text-align: right;">0.062</td>
-<td style="text-align: right;">9.589</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Corporate Distrust</td>
-<td style="text-align: left;">CorpDistrust</td>
-<td style="text-align: left;">CD_01</td>
-<td style="text-align: right;">0.372</td>
-<td style="text-align: right;">0.096</td>
-<td style="text-align: right;">3.857</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Corporate Distrust</td>
-<td style="text-align: left;">CorpDistrust</td>
-<td style="text-align: left;">CD_02</td>
-<td style="text-align: right;">-0.219</td>
-<td style="text-align: right;">0.105</td>
-<td style="text-align: right;">-2.087</td>
-<td style="text-align: right;">0.037</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Corporate Distrust</td>
-<td style="text-align: left;">CorpDistrust</td>
-<td style="text-align: left;">CD_03</td>
-<td style="text-align: right;">0.805</td>
-<td style="text-align: right;">0.065</td>
-<td style="text-align: right;">12.474</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Corporate Distrust</td>
-<td style="text-align: left;">CorpDistrust</td>
-<td style="text-align: left;">CD_04</td>
-<td style="text-align: right;">-0.113</td>
-<td style="text-align: right;">0.102</td>
-<td style="text-align: right;">-1.100</td>
-<td style="text-align: right;">0.271</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Corporate Distrust</td>
-<td style="text-align: left;">CorpDistrust</td>
-<td style="text-align: left;">CD_05</td>
-<td style="text-align: right;">0.692</td>
-<td style="text-align: right;">0.069</td>
-<td style="text-align: right;">10.001</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Corporate Distrust</td>
-<td style="text-align: left;">CorpDistrust</td>
-<td style="text-align: left;">CD_06</td>
-<td style="text-align: right;">0.725</td>
-<td style="text-align: right;">0.062</td>
-<td style="text-align: right;">11.662</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Corporate Distrust</td>
-<td style="text-align: left;">CorpDistrust</td>
-<td style="text-align: left;">CD_07</td>
-<td style="text-align: right;">-0.757</td>
-<td style="text-align: right;">0.072</td>
-<td style="text-align: right;">-10.532</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</section>
-<section id="reliability" class="level2">
-<h2 class="anchored" data-anchor-id="reliability">Reliability</h2>
-<p>We report two complementary reliability coefficients for each subscale.</p>
-<p><strong>Cronbach’s α</strong> is the most widely used index of internal consistency. It estimates the proportion of scale variance attributable to the common factor, under the assumption that all items contribute equally to the factor (tau-equivalence). An α ≥ .70 is generally acceptable, with ≥ .80 preferred for established scales <span class="citation" data-cites="boateng2018 nunnally1994">(<a href="#ref-boateng2018" role="doc-biblioref">Boateng et al. 2018</a>; <a href="#ref-nunnally1994" role="doc-biblioref"><strong>nunnally1994?</strong></a>)</span>.</p>
-<p><strong>McDonald’s ω</strong> (omega total) relaxes the tau-equivalence assumption and weights items by their factor loadings, giving a more accurate lower bound on reliability when items differ in how strongly they relate to the factor. It is increasingly recommended alongside or instead of α <span class="citation" data-cites="mcdonald1999 briones2026">(<a href="#ref-mcdonald1999" role="doc-biblioref"><strong>mcdonald1999?</strong></a>; <a href="#ref-briones2026" role="doc-biblioref"><strong>briones2026?</strong></a>)</span>. The same thresholds apply: ω ≥ .70 acceptable, ≥ .80 preferred.</p>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>compute_reliability <span class="ot">&lt;-</span> <span class="cf">function</span>(fit, items, data, label) {</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Cronbach&#39;s alpha via psych (on raw item data)</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  alpha_val <span class="ot">&lt;-</span> psych<span class="sc">::</span><span class="fu">alpha</span>(data <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="fu">all_of</span>(items)))<span class="sc">$</span>total<span class="sc">$</span>raw_alpha</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># McDonald&#39;s omega via semTools</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  omega_val  <span class="ot">&lt;-</span> semTools<span class="sc">::</span><span class="fu">reliability</span>(fit)[<span class="st">&quot;omega&quot;</span>, <span class="dv">1</span>]</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">Subscale        =</span> label,</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">Cronbach&#39;s α</span><span class="st">`</span>  <span class="ot">=</span> <span class="fu">round</span>(alpha_val, <span class="dv">3</span>),</span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">`</span><span class="at">McDonald&#39;s ω</span><span class="st">`</span>  <span class="ot">=</span> <span class="fu">round</span>(omega_val, <span class="dv">3</span>)</span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_rows</span>(</span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">compute_reliability</span>(fit_trust,    d<span class="sc">$</span>cols_trust,    factors_data, <span class="st">&quot;Trust&quot;</span>),</span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">compute_reliability</span>(fit_distrust, d<span class="sc">$</span>cols_distrust, factors_data, <span class="st">&quot;Distrust&quot;</span>),</span>
-<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">compute_reliability</span>(fit_company,  d<span class="sc">$</span>cols_company,  factors_data, <span class="st">&quot;Corporate Distrust&quot;</span>)</span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span></span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Some items ( TR_01 TR_06 TR_07 TR_10 TR_11 TR_21 ) were negatively correlated with the first principal component and 
-probably should be reversed.  
-To do this, run the function again with the &#39;check.keys=TRUE&#39; option</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Some items ( DT_06 DT_07 DT_13 ) were negatively correlated with the first principal component and 
-probably should be reversed.  
-To do this, run the function again with the &#39;check.keys=TRUE&#39; option</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Some items ( CD_02 CD_04 CD_07 ) were negatively correlated with the first principal component and 
-probably should be reversed.  
-To do this, run the function again with the &#39;check.keys=TRUE&#39; option</code></pre>
-</div>
-<div class="cell-output-display">
-<table class="caption-top table table-sm table-striped small">
-<thead>
-<tr class="header">
-<th style="text-align: left;">Subscale</th>
-<th style="text-align: right;">Cronbach’s α</th>
-<th style="text-align: right;">McDonald’s ω</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
 <td style="text-align: left;">Trust</td>
-<td style="text-align: right;">0.811</td>
-<td style="text-align: right;">0.811</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Distrust</td>
-<td style="text-align: right;">0.329</td>
-<td style="text-align: right;">0.675</td>
+<td style="text-align: left;">EFA</td>
+<td style="text-align: right;">5135.44</td>
+<td style="text-align: right;">208</td>
+<td style="text-align: right;">0.691</td>
+<td style="text-align: right;">0.657</td>
+<td style="text-align: right;">0.281</td>
+<td style="text-align: left;">[0.275, 0.288]</td>
+<td style="text-align: right;">0.230</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Corporate Distrust</td>
-<td style="text-align: right;">0.063</td>
-<td style="text-align: right;">0.316</td>
+<td style="text-align: left;">Disrust</td>
+<td style="text-align: left;">1F</td>
+<td style="text-align: right;">6075.73</td>
+<td style="text-align: right;">189</td>
+<td style="text-align: right;">0.573</td>
+<td style="text-align: right;">0.525</td>
+<td style="text-align: right;">0.323</td>
+<td style="text-align: left;">[0.316, 0.33]</td>
+<td style="text-align: right;">0.260</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Disrust</td>
+<td style="text-align: left;">EFA</td>
+<td style="text-align: right;">5061.13</td>
+<td style="text-align: right;">188</td>
+<td style="text-align: right;">0.646</td>
+<td style="text-align: right;">0.605</td>
+<td style="text-align: right;">0.294</td>
+<td style="text-align: left;">[0.287, 0.301]</td>
+<td style="text-align: right;">0.240</td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
-</section>
-</section>
-<section id="summary" class="level1">
-<h1>Summary</h1>
-<p>The CFA tests whether the factor structure identified in the EFA holds up under confirmatory conditions. A well-fitting model with high standardised loadings (λ ≥ .50) and good reliability (α, ω ≥ .80) would support the internal validity of each subscale.</p>
-<p>If fit is poor (e.g., CFI &lt; .90, RMSEA &gt; .10), possible remedies include:</p>
-<ul>
-<li>Inspecting modification indices (<code>modindices(fit)</code>) to identify items with large residual correlations, which may suggest redundancy or item misspecification.</li>
-<li>Removing items with low standardised loadings (λ &lt; .40) and re-estimating the model.</li>
-<li>Re-examining the EFA solution — poor CFA fit often signals that the EFA structure was sample-specific rather than replicable.</li>
-</ul>
-<p>Once full data are collected, the dataset should be split randomly so that EFA and CFA are estimated on independent subsamples, providing a proper test of structural replication <span class="citation" data-cites="boateng2018 briones2026">(<a href="#ref-boateng2018" role="doc-biblioref">Boateng et al. 2018</a>; <a href="#ref-briones2026" role="doc-biblioref"><strong>briones2026?</strong></a>)</span>.</p>
+<p>We can also compare models with a scaled chi-square difference test.</p>
+<p>We prefer more complex models when <strong>both</strong> criteria are met: the difference test is significant (p &lt; .05) and ΔCFI &gt; .01. Using both criteria guards against retaining a complex model purely on the basis of a statistically significant but practically trivial improvement in fit.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lavTestLRT</span>(trust_1f_model, trust_efa_model, <span class="at">model.names =</span> <span class="fu">c</span>(<span class="st">&quot;1F&quot;</span>, <span class="st">&quot;EFA&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Scaled Chi-Squared Difference Test (method = &quot;satorra.2000&quot;)
+
+lavaan-&gt;lavTestLRT():  
+   lavaan NOTE: The &quot;Chisq&quot; column contains standard test statistics, not the 
+   robust test that should be reported per model. A robust difference test is 
+   a function of two standard (not robust) statistics.
+
+     Df AIC BIC  Chisq Chisq diff  RMSEA Df diff Pr(&gt;Chisq)    
+EFA 208         5135.4                                         
+1F  209         5696.6     127.28 1.3665       1  &lt; 2.2e-16 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">lavTestLRT</span>(distrust_1f_model, distrust_efa_model, <span class="at">model.names =</span> <span class="fu">c</span>(<span class="st">&quot;1F&quot;</span>, <span class="st">&quot;EFA&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Scaled Chi-Squared Difference Test (method = &quot;satorra.2000&quot;)
+
+lavaan-&gt;lavTestLRT():  
+   lavaan NOTE: The &quot;Chisq&quot; column contains standard test statistics, not the 
+   robust test that should be reported per model. A robust difference test is 
+   a function of two standard (not robust) statistics.
+
+     Df AIC BIC  Chisq Chisq diff  RMSEA Df diff Pr(&gt;Chisq)    
+EFA 188         5061.1                                         
+1F  189         6075.7     145.13 1.8381       1  &lt; 2.2e-16 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+</div>
+</div>
 
 </section>
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list">
 <div id="ref-boateng2018" class="csl-entry" role="listitem">
 Boateng, Godfred O., Torsten B. Neilands, Edward A. Frongillo, Hugo R. Melgar-Quiñonez, and Sera L. Young. 2018. <span>“Best Practices for Developing and Validating Scales for Health, Social, and Behavioral Research: A Primer.”</span> <em>Frontiers in Public Health</em> 6 (June). <a href="https://doi.org/10.3389/fpubh.2018.00149">https://doi.org/10.3389/fpubh.2018.00149</a>.
-</div>
-<div id="ref-buchanan2014" class="csl-entry" role="listitem">
-Buchanan, Erin M., Kathrene D. Valentine, and Stefan E. Schulenberg. 2014. <span>“Exploratory and Confirmatory Factor Analysis: Developing the Purpose in Life Test<span></span>short Form.”</span> <em>SAGE Research Methods Cases</em>, January. <a href="https://doi.org/10.1007/S10902-008-9124-3">https://doi.org/10.1007/S10902-008-9124-3</a>.
 </div>
 </div></section></div></main>
 <!-- /main column -->

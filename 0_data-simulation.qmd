@@ -21,7 +21,7 @@ library(faux)
 
 ```{r}
 source("read_qualtrics_data.R")
-d <- load_data("data/pilot/TPSai_19+March+2026_10.13.csv")
+d <- load_data("data/pilot/TPSai_19+March+2026_16.20.csv")
 factors_data <- d$items_data %>% 
   select(d$cols_tpsai) %>% 
   mutate(across(everything(), ~replace_na(.x, 3)))
