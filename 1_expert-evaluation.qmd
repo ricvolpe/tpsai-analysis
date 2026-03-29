@@ -29,6 +29,7 @@ options(readr.show_col_types = FALSE)
 file_path <- "data/pilot/TPSai+-+Experts_29+March+2026_15.56.csv"
 raw_data <- read_csv(file_path, n_max = 2)
 colnames <- names(raw_data)
+question_labels <- setNames(sub(" - .*", "", as.character(raw_data[1, ])), colnames)
 raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
 ```
 
@@ -36,6 +37,15 @@ raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
 factors_map <- read_csv('data/factors.csv')
 cols_tpsai <- factors_map$IID
 choices <- c("Keep" = 1, "Drop" = 2, "Reword" = 3)
+```
+
+```{r}
+# check that survey and factors correspond (should be empty dataframe)
+data.frame(
+  question_label = unlist(question_labels[cols_tpsai]),
+  factor_item = factors_map$Item,
+  match = unlist(question_labels[cols_tpsai]) == factors_map$Item
+) %>% filter(!match)  %>% kable()
 ```
 
 ```{r}
