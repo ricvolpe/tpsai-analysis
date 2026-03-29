@@ -12,9 +12,7 @@ execute:
   warning: false
 ---
 
-# Data Processing
-
-```{r}
+```{r, echo=FALSE}
 library(tidyverse)
 library(gtools)
 library(psych)
@@ -26,42 +24,16 @@ set.seed(8675309) # makes sure random numbers are reproducible
 
 ```{r}
 source("read_qualtrics_data.R")
-d <- load_data("data/pilot/TPSai_17+March+2026_16.59.csv")
-cols_tpsai <- d$cols_tpsai
+d <- load_data("data/pilot/TPSai_29+March+2026_15.56.csv", "data/factors.csv")
+items_data <- d$items_data
+cols_tpsai <- d$item_ids
 ```
 
-```{r}
-# generate random pilot data for code development before data collection
-random_data <- as.data.frame(
-  lapply(cols_tpsai, function(col) {
-    sample(names(d$likert_levels), size=100, replace=TRUE)
-  })
-)
-colnames(random_data) <- cols_tpsai
+# High missingness
 
-# switch to d$items_data after data collection
-items_data <- random_data %>%
-  select(all_of(cols_tpsai))  %>%
-  mutate(across(all_of(cols_tpsai), ~ d$likert_levels[.x])) %>% 
-  
-  # simulate columns with missingness
-  faux::messy(prop = .4, "TR_01") %>%
-  faux::messy(prop = .2, "DT_06") %>%
-  
-  # make a high correlation between DISTRUST_01 and _02
-  mutate(DT_02 = DT_01 + sample(-1:1, n(), replace = TRUE),
-         DT_02 = case_match(DT_02, 0 ~ 1, 6 ~ 5, .default = DT_02))
-```
+Items where many people respond `Don't know` likely capture constructs that participants are uncertain about and can reduce the effective sample size and item statistics like means and correlations. We decided to drop items exceeding 30% missing responses. Our rationale is that if at least 3 out of 10 individuals were not able to meaningfully engage with an item, dropping it simplifies our scale and allows it to focus on measuring items with generally clearer responses.
 
-# Single-item Inspection
-
-## High missingness
-
-High missingness items, where many people respond "*Don't know"*, likely capture constructs that participants are uncertain about and can reduce the effective sample size and bias item statistics like means and correlations. Given that we have a substantial number of survey items, removing high missingness items is a way of shortening our survey by focusing on constructs that people have clearer ideas about.
-
-We decided to drop items exceeding 30% missing responses. Our rationale is that if at least 3 out of 10 individuals were not able to meaningfully engage with an item, dropping it simplifies our scale and allows it to focus on measuring items with generally clearer responses. 30% is a relatively moderate threshold for removal of items with high missingness, which might avoid premature dropping of items with moderate missingness may still yield interpretable results.
-
-However, beyond just dropping items with at least 30% missingness, we want to inspect the distribution of missing answers per item, grouped by sub-scale. When visually inspecting this distribution we will look for discontinuities, meaning items with a substantially higher proportion of "Don't know" than other items in the same sub-scale. We may remove such items even if below our pre-set missingness threshold.
+Beyond just dropping items with at least 30% missingness, we want to inspect the distribution of missing answers per item. When visually inspecting this distribution we will look for discontinuities, meaning items with a substantially higher proportion of `Don't know` than other items. We may remove such items even if below our pre-set missingness threshold.
 
 ```{r}
 missing_threshold <- 0.3
@@ -75,9 +47,9 @@ missing_data <- items_data %>%
     names_to  = c("item", ".value"),
     names_sep = "_(?=[^_]+$)"
   ) %>%
-  separate(item, c("subscale", "q_n"), sep = "_", remove = FALSE)
+  separate(item, c("factor", "q_n"), sep = "_", remove = FALSE)
 
-ggplot(missing_data, aes(x = missing, fill = subscale)) +
+ggplot(missing_data, aes(x = missing, fill = factor)) +
   geom_histogram(binwidth = 0.01) +
   geom_vline(xintercept = missing_threshold)
 ```
@@ -85,127 +57,82 @@ ggplot(missing_data, aes(x = missing, fill = subscale)) +
 ```{r}
 missing_items <- missing_data %>%
   filter(missing > missing_threshold) %>%  # add in other criteria from visual inspection
-  select(subscale, item, missing)
+  select(factor, item, missing) %>% 
+  arrange(desc(missing))
 
-missing_items %>% knitr::kable(digits = 2)
+if (nrow(missing_items) > 0) {
+  missing_items %>% knitr::kable(digits = 2)
+}
 ```
 
-## Distributional Properties
+# Distributional Shapes
 
-We examine skewness and kurtosis for each item to check whether responses are spread across the scale or piled up at one end. Items where most people gave the same answer have little variation, which makes it harder for factor analysis to detect the underlying structure, regardless of the estimation method used.
+## Visual Inspection
 
-Following @kline2016, we treat absolute skewness and kurtosis values above 1.5 as a sign that an item's responses are too bunched together to be useful. Items exceeding this threshold will be considered for removal alongside the other item reduction criteria. Additionally, we may consider keeping items with high skew or kurtosis for comparison or reporting purposes but flag them for removal from factor analysis.
+Let us start by visually inspecting the distribution of each item. Here we are looking for items where people consistently avoid using certain points in the scale such as items with responses clustered at the top and end of the scale (Bimodal distribution) or items where some scale points are consistently not used. These items might need to be reworded or removed depending on their distributional shape.
+
+Moreover, we can look for items that have a remarkably visually different distribution that all other items in the same factor, suggesting that the item might not belong to the intended factor and we might need to remove it or reword it.
 
 ```{r}
-dist_threshold <- 1.5
+#| fig-width: 12
+#| fig-height: 14
+items_data %>% 
+  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
+  ggplot(aes(x = factor(response))) +
+  geom_bar(fill = "#D85A30") +
+  scale_x_discrete(limits = as.character(1:7)) +
+  facet_wrap(~ item, ncol = 5) +
+  labs(x = "", y = "") +
+  theme_minimal(base_size = 16)
+```
 
-dist_data <- items_data %>%
+## Skewness
+
+We examine skewness to check whether any item responses cluster toward one end of the scale.
+
+-   Items with **negative skew** (left tail) may have a "ceiling effect" where an item is too easy to endorse and almost everyone agrees.
+
+-   Items with **positive skew** (right tail) may have a "floor effect" where an item is too extreme to endorse and very few people agree.
+
+Following @kline2016, we inspect for absolute skewness values above 1.5. Items exceeding this threshold will be considered for removal. We also sure the same visual inspect method as high missingness item for the detection of visual discontinuities in skewness values
+
+```{r}
+skew_threshold <- 1.5
+
+skew_data <- items_data %>%
   summarise(
-    across(all_of(everything()), list(
-        skew = ~ psych::skew(.x,    na.rm = TRUE),
-        kurt = ~ psych::kurtosi(.x, na.rm = TRUE)
-      ), .names = "{.col}_{.fn}")
+    across(all_of(cols_tpsai), ~ psych::skew(.x,    na.rm = TRUE), .names = "{.col}_skew")
   ) %>%
   pivot_longer(
     everything(),
     names_to  = c("item", ".value"),
     names_sep = "_(?=[^_]+$)"
   ) %>%
-  separate(item, c("subscale", "q_n"), sep = "_", remove = FALSE)
+  separate(item, c("factor", "q_n"), sep = "_", remove = FALSE)
 
-ggplot(dist_data, aes(x = skew, y = kurt, colour = subscale, label = item)) +
-  geom_point() +
-  geom_hline(yintercept = c(-dist_threshold, dist_threshold), linetype = "dashed") +
-  geom_vline(xintercept = c(-dist_threshold, dist_threshold), linetype = "dashed") +
-  labs(x = "Skewness", y = "Kurtosis")
+ggplot(skew_data, aes(x = skew, fill = factor)) +
+  geom_histogram(binwidth = 0.1) +
+  geom_vline(xintercept = skew_threshold) + geom_vline(xintercept = -skew_threshold)
 ```
 
 ```{r}
-dist_items <- dist_data %>%
-  filter(abs(skew) > dist_threshold | abs(kurt) > dist_threshold) %>% 
-  select(subscale, item, skew, kurt)
+skew_items <- skew_data %>%
+  filter(abs(skew) > skew_threshold) %>%  # add in other criteria from visual inspection
+  select(factor, item, skew) %>% 
+  arrange(desc(skew))
 
-dist_items  %>% knitr::kable(digits = 2)
+if (nrow(skew_items) > 0) {
+  skew_items %>% knitr::kable(digits = 2)
+}
 ```
 
-Let's also inspect how the distributions of flagged items actually look like
+We can visually explore these flagged items in the above plots of distributions.
 
-```{r}
-flagged_items <- dist_items %>% pull(item)
+# Inter-item Correlations
 
-items_data %>% 
-  select(all_of(flagged_items)) %>%
-  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
-  left_join(dist_items, by = "item") %>%
-  ggplot(aes(x = factor(response))) +
-  geom_bar(fill = "#D85A30") +
-  facet_wrap(~ item) +
-  labs(x = "Response", y = "Count") +
-  theme_minimal()
-```
+Next, we examine pairwise inter-item correlations to identify redundant items. Items correlating above .80 with another item are considered redundant, as this indicates the two items share more than 64% of their variance (*r*² = .64), leaving little unique contribution to the scale. As per our missingness check, we will also visually inspect inter-item correlations for any discontinuity in distribution across sub-scales, potentially identifying items worth merging even if correlated under our pre-set threshold.
 
-## Item-Total Correlations
-
-For each item, we compute the *adjusted item-total correlation*, the correlation between that item and the sum of all other items in the same sub-scale, excluding itself. Items with an adjusted item-total correlation below .30 are flagged for potential removal, as they contribute little to what the sub-scale is measuring overall [@boateng2018]
-
-As with previous checks, we will also visually inspect the distribution of item-total correlations within each sub-scale, looking for discontinuities that may identify items worth removing even if they fall above our pre-set threshold. Particular attention will be paid to any negatively correlating items, which would suggest an item is moving in the opposite direction to the rest of its sub-scale — a strong signal of potential issues with wording or construct alignment.
-
-```{r}
-it_cor_threshold <- 0.3
-
-it_cor_data <- list(
-  TR    = d$cols_trust,
-  DT = d$cols_distrust,
-  CD  = d$cols_company
-) %>%
-  map_dfr(~ {
-    items_data %>%
-      select(all_of(.x)) %>%
-      alpha() %>%
-      .$item.stats %>%
-      rownames_to_column("item") %>%
-      select(item, it_corr = r.drop)
-  }, .id = "subscale")
-
-it_cor_data %>%
-  ggplot(aes(x = it_corr, fill= subscale)) +
-  facet_wrap(~subscale, ncol = 1, scales = "free_y") +
-  geom_histogram(binwidth = 0.05) +
-  geom_vline(xintercept = it_cor_threshold) +
-  geom_vline(xintercept = -it_cor_threshold) +
-  scale_x_continuous(breaks = seq(-1, 1, .2)) +
-  coord_cartesian(xlim = c(-1, 1))
-```
-
-```{r}
-it_cor_items <- it_cor_data %>%
-  filter(abs(it_corr) < it_cor_threshold) %>%
-  select(subscale, item, it_corr)
-
-it_cor_items %>%
-  knitr::kable(digits = 2)
-```
-
-## Summary of single items to iinspect
-
-```{r}
-options(knitr.kable.NA = " ")
-
-missing_items %>%
-  full_join(dist_items, by=c("item", "subscale")) %>% 
-  full_join(it_cor_items, by=c("item", "subscale")) %>% 
-  select(subscale, item, missing, skew, kurt, it_corr) %>% 
-  arrange(item) %>% 
-  knitr::kable(digits = 2)
-```
-
-# Item pairs: Inter-item Correlations
-
-Next, we examine pairwise Polychoric inter-item correlations to identify redundant items. Polychoric correlations are used as they are more appropriate for ordinal Likert-scale data than Pearson correlations @boateng2018. Items correlating above .80 with another item are considered redundant, as this indicates the two items share more than 64% of their variance (*r*² = .64), leaving little unique contribution to the scale.
-
-As per our missingness check, we will also visually inspect inter-item correlations for any discontinuity in distribution across sub-scales, potentially identifying items worth merging even if correlated under our pre-set threshold.
-
-We examine inter-item correlations within and across sub-scales.
+We intend to use Polychoric correlations as they are more appropriate for ordinal Likert-scale data than Pearson correlations [@boateng2018].
 
 ```{r}
 ii_cor_threshold <- 0.8
@@ -213,8 +140,8 @@ ii_cor_threshold <- 0.8
 iia_cor_data <- 
   items_data %>%
   select(all_of(cols_tpsai)) %>%
-  polychoric() %>%
-  .$rho %>%
+  #TODO: using Pearson just for tester data, switch to `polychoric() %>%.$rho` after
+  cor(use = "pairwise.complete.obs") %>%
   as.data.frame() %>%
   rownames_to_column("item1") %>%
   pivot_longer(-item1, names_to = "item2", values_to = "r") %>%
@@ -223,17 +150,59 @@ iia_cor_data <-
 
 iia_cor_data %>%
   ggplot(aes(x = r)) +
-  geom_histogram(binwidth = 0.01) +
-  geom_vline(xintercept = ii_cor_threshold) +
-  geom_vline(xintercept = -ii_cor_threshold) +
+  geom_histogram(binwidth = 0.01, fill = "steelblue") +
+  geom_vline(xintercept = ii_cor_threshold) + geom_vline(xintercept = -ii_cor_threshold) +
   scale_x_continuous(breaks = seq(-1, 1, .2)) +
   coord_cartesian(xlim = c(-1, 1))
 ```
 
 ```{r}
+item_factor_lookup <- tibble(
+  item = cols_tpsai,
+  factor = str_extract(item, "^[A-Z]+")
+)
+
+iia_cor_data <- iia_cor_data %>%
+  left_join(item_factor_lookup, by = c("item1" = "item")) %>%
+  rename(factor1 = factor) %>%
+  left_join(item_factor_lookup, by = c("item2" = "item")) %>%
+  rename(factor2 = factor) %>%
+  mutate(pair_type = if_else(factor1 == factor2, "Same factor", "Cross factor")) %>%
+  select(item1, item2, r, pair_type)
+```
+
+## Positive within-factor
+
+Items are moving together as expected. However, if r exceeds our redundancy threshold, the items may be asking the same question twice. We might dropping the weaker item (lower item-total correlation) or merging the pair into a single composite.
+
+```{r}
+iia_cor_data %>%
+  filter(r > ii_cor_threshold) %>%
+  filter(pair_type == "Same factor") %>%
+  select(-pair_type) %>%
+  knitr::kable(digits = 2)
+```
+
+## Negative within-factor
+
+One or more items are worded in the opposite direction to the rest of the subscale. Check for items that need reverse-scoring and recode before re-running.
+
+```{r}
+iia_cor_data %>%
+  filter(r < -ii_cor_threshold) %>%
+  filter(pair_type == "Same factor") %>%
+  select(-pair_type) %>%
+  knitr::kable(digits = 2)
+```
+
+## Across-factors
+
+Two subscales are overlapping more than expected. Consider whether the items belong to the same factor, or whether the two subscales need clearer conceptual separation. If persistent across multiple item pairs, review the factor structure.
+
+```{r}
 iia_cor_data %>%
   filter(abs(r) > ii_cor_threshold) %>%
-  select(item1, item2, r) %>% # add in other criteria from visual inspection
-  arrange(r) %>%
+  filter(pair_type == "Cross factor") %>%
+  select(-pair_type) %>%
   knitr::kable(digits = 2)
 ```
