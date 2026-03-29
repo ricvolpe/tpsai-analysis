@@ -67,25 +67,6 @@ if (nrow(missing_items) > 0) {
 
 # Distributional Shapes
 
-## Visual Inspection
-
-Let us start by visually inspecting the distribution of each item. Here we are looking for items where people consistently avoid using certain points in the scale such as items with responses clustered at the top and end of the scale (Bimodal distribution) or items where some scale points are consistently not used. These items might need to be reworded or removed depending on their distributional shape.
-
-Moreover, we can look for items that have a remarkably visually different distribution that all other items in the same factor, suggesting that the item might not belong to the intended factor and we might need to remove it or reword it.
-
-```{r}
-#| fig-width: 12
-#| fig-height: 14
-items_data %>% 
-  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
-  ggplot(aes(x = factor(response))) +
-  geom_bar(fill = "#D85A30") +
-  scale_x_discrete(limits = as.character(1:7)) +
-  facet_wrap(~ item, ncol = 5) +
-  labs(x = "", y = "") +
-  theme_minimal(base_size = 16)
-```
-
 ## Skewness
 
 We examine skewness to check whether any item responses cluster toward one end of the scale.
@@ -126,83 +107,19 @@ if (nrow(skew_items) > 0) {
 }
 ```
 
-We can visually explore these flagged items in the above plots of distributions.
+## Visual Inspection
 
-# Inter-item Correlations
-
-Next, we examine pairwise inter-item correlations to identify redundant items. Items correlating above .80 with another item are considered redundant, as this indicates the two items share more than 64% of their variance (*r*² = .64), leaving little unique contribution to the scale. As per our missingness check, we will also visually inspect inter-item correlations for any discontinuity in distribution across sub-scales, potentially identifying items worth merging even if correlated under our pre-set threshold.
-
-We intend to use Polychoric correlations as they are more appropriate for ordinal Likert-scale data than Pearson correlations [@boateng2018].
+Beyond flagging items with high skew, we can also visually inspect the distribution of each item, looking for items where people consistently avoid using certain points in the scale such as items with responses clustered at the top and end of the scale (Bimodal distribution) or items where some scale points are consistently not used. These items might need to be reworded or removed depending on their distributional shape.
 
 ```{r}
-ii_cor_threshold <- 0.8
-
-iia_cor_data <- 
-  items_data %>%
-  select(all_of(cols_tpsai)) %>%
-  #TODO: using Pearson just for tester data, switch to `polychoric() %>%.$rho` after
-  cor(use = "pairwise.complete.obs") %>%
-  as.data.frame() %>%
-  rownames_to_column("item1") %>%
-  pivot_longer(-item1, names_to = "item2", values_to = "r") %>%
-  filter(r > -1 & r < 1) %>%
-  filter(item1 < item2)
-
-iia_cor_data %>%
-  ggplot(aes(x = r)) +
-  geom_histogram(binwidth = 0.01, fill = "steelblue") +
-  geom_vline(xintercept = ii_cor_threshold) + geom_vline(xintercept = -ii_cor_threshold) +
-  scale_x_continuous(breaks = seq(-1, 1, .2)) +
-  coord_cartesian(xlim = c(-1, 1))
-```
-
-```{r}
-item_factor_lookup <- tibble(
-  item = cols_tpsai,
-  factor = str_extract(item, "^[A-Z]+")
-)
-
-iia_cor_data <- iia_cor_data %>%
-  left_join(item_factor_lookup, by = c("item1" = "item")) %>%
-  rename(factor1 = factor) %>%
-  left_join(item_factor_lookup, by = c("item2" = "item")) %>%
-  rename(factor2 = factor) %>%
-  mutate(pair_type = if_else(factor1 == factor2, "Same factor", "Cross factor")) %>%
-  select(item1, item2, r, pair_type)
-```
-
-## Positive within-factor
-
-Items are moving together as expected. However, if r exceeds our redundancy threshold, the items may be asking the same question twice. We might dropping the weaker item (lower item-total correlation) or merging the pair into a single composite.
-
-```{r}
-iia_cor_data %>%
-  filter(r > ii_cor_threshold) %>%
-  filter(pair_type == "Same factor") %>%
-  select(-pair_type) %>%
-  knitr::kable(digits = 2)
-```
-
-## Negative within-factor
-
-One or more items are worded in the opposite direction to the rest of the subscale. Check for items that need reverse-scoring and recode before re-running.
-
-```{r}
-iia_cor_data %>%
-  filter(r < -ii_cor_threshold) %>%
-  filter(pair_type == "Same factor") %>%
-  select(-pair_type) %>%
-  knitr::kable(digits = 2)
-```
-
-## Across-factors
-
-Two subscales are overlapping more than expected. Consider whether the items belong to the same factor, or whether the two subscales need clearer conceptual separation. If persistent across multiple item pairs, review the factor structure.
-
-```{r}
-iia_cor_data %>%
-  filter(abs(r) > ii_cor_threshold) %>%
-  filter(pair_type == "Cross factor") %>%
-  select(-pair_type) %>%
-  knitr::kable(digits = 2)
+#| fig-width: 12
+#| fig-height: 14
+items_data %>% 
+  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
+  ggplot(aes(x = factor(response))) +
+  geom_bar(fill = "#D85A30") +
+  scale_x_discrete(limits = as.character(1:7)) +
+  facet_wrap(~ item, ncol = 5) +
+  labs(x = "", y = "") +
+  theme_minimal(base_size = 16)
 ```

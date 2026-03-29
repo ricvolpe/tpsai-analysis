@@ -45,7 +45,7 @@ data.frame(
   question_label = unlist(question_labels[cols_tpsai]),
   factor_item = factors_map$Item,
   match = unlist(question_labels[cols_tpsai]) == factors_map$Item
-) %>% filter(!match)  %>% kable()
+) %>% filter(!match)  %>% nrow()
 ```
 
 ```{r}
