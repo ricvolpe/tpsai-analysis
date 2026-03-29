@@ -2243,74 +2243,62 @@ vertical-align: -.125em;
 <section id="data-processing" class="level1">
 <h1>Data Processing</h1>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gtools)</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(psych)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(irr)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(knitr)</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">8675309</span>) <span class="co"># makes sure random numbers are reproducible</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">readr.show_col_types =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>file_path <span class="ot">&lt;-</span> <span class="st">&quot;data/pilot/TPSai+-+Experts_29+March+2026_15.56.csv&quot;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>raw_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(file_path, <span class="at">n_max =</span> <span class="dv">2</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>colnames <span class="ot">&lt;-</span> <span class="fu">names</span>(raw_data)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>raw_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(file_path, <span class="at">col_names =</span> colnames, <span class="at">skip =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># read Qualtrics data without metadata rows</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>file_path <span class="ot">&lt;-</span> <span class="st">&quot;data/pilot/TPSai+-+Experts_11+March+2026_12.08.csv&quot;</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>raw_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(file_path, <span class="at">n_max =</span> <span class="dv">2</span>)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>colnames <span class="ot">&lt;-</span> <span class="fu">names</span>(raw_data)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>raw_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(file_path, <span class="at">col_names =</span> colnames, <span class="at">skip =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>factors_map <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">&#39;data/factors.csv&#39;</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>cols_tpsai <span class="ot">&lt;-</span> factors_map<span class="sc">$</span>IID</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>choices <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Keep&quot;</span> <span class="ot">=</span> <span class="dv">1</span>, <span class="st">&quot;Drop&quot;</span> <span class="ot">=</span> <span class="dv">2</span>, <span class="st">&quot;Reword&quot;</span> <span class="ot">=</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># define variables for questions and answers</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>cols_trust    <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;TR_&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">23</span>)</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>cols_distrust <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;DT_&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">13</span>)</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>cols_company  <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;CD_&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">7</span>)</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>cols_tpsai <span class="ot">&lt;-</span> <span class="fu">c</span>(cols_trust, cols_distrust, cols_company)</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>choices <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Keep&quot;</span> <span class="ot">=</span> <span class="dv">1</span>, <span class="st">&quot;Drop&quot;</span> <span class="ot">=</span> <span class="dv">2</span>, <span class="st">&quot;Reword&quot;</span> <span class="ot">=</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># generate random data for code development before data collection</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>random_data <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lapply</span>(cols_tpsai, <span class="cf">function</span>(col) {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sample</span>(<span class="fu">names</span>(choices), <span class="at">size=</span><span class="dv">5</span>, <span class="at">replace=</span><span class="cn">TRUE</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(random_data) <span class="ot">&lt;-</span> cols_tpsai</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># generate random data for code development before data collection</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>random_data <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lapply</span>(cols_tpsai, <span class="cf">function</span>(col) {</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sample</span>(<span class="fu">names</span>(choices), <span class="at">size=</span><span class="dv">5</span>, <span class="at">replace=</span><span class="cn">TRUE</span>)</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  })</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(random_data) <span class="ot">&lt;-</span> cols_tpsai</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>analysis_data <span class="ot">&lt;-</span> random_data <span class="co"># switch to raw_data after data collection</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>experts_data <span class="ot">&lt;-</span> analysis_data <span class="sc">%&gt;%</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="fu">all_of</span>(cols_tpsai))  <span class="sc">%&gt;%</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">all_of</span>(cols_tpsai), <span class="sc">~</span> choices[.x]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>analysis_data <span class="ot">&lt;-</span> random_data <span class="co"># switch to raw_data after data collection</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>experts_data <span class="ot">&lt;-</span> analysis_data <span class="sc">%&gt;%</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="fu">all_of</span>(cols_tpsai))  <span class="sc">%&gt;%</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">all_of</span>(cols_tpsai), <span class="sc">~</span> choices[.x]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="inter-rater-agreement" class="level1">
 <h1>Inter-Rater Agreement</h1>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>ratings_matrix <span class="ot">&lt;-</span> experts_data <span class="sc">%&gt;%</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="fu">all_of</span>(cols_tpsai)) <span class="sc">%&gt;%</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">everything</span>(), as.integer)) <span class="sc">%&gt;%</span></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.matrix</span>()</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>overall_alpha <span class="ot">&lt;-</span> <span class="fu">kripp.alpha</span>(ratings_matrix, <span class="at">method =</span> <span class="st">&quot;nominal&quot;</span>)</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>overall_alpha</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>ratings_matrix <span class="ot">&lt;-</span> experts_data <span class="sc">%&gt;%</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="fu">all_of</span>(cols_tpsai)) <span class="sc">%&gt;%</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">everything</span>(), as.integer)) <span class="sc">%&gt;%</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.matrix</span>()</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>overall_alpha <span class="ot">&lt;-</span> <span class="fu">kripp.alpha</span>(ratings_matrix, <span class="at">method =</span> <span class="st">&quot;nominal&quot;</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>overall_alpha</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> Krippendorff&#39;s alpha
 
- Subjects = 43 
+ Subjects = 40 
    Raters = 5 
-    alpha = 0.0312 </code></pre>
+    alpha = 0.0207 </code></pre>
 </div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>interpret_alpha <span class="ot">&lt;-</span> <span class="fu">case_when</span>(</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  overall_alpha<span class="sc">$</span>value <span class="sc">&lt;</span> <span class="fl">0.20</span> <span class="sc">~</span> <span class="st">&quot;Slight agreement&quot;</span>,</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  overall_alpha<span class="sc">$</span>value <span class="sc">&lt;</span> <span class="fl">0.40</span> <span class="sc">~</span> <span class="st">&quot;Fair agreement&quot;</span>,</span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  overall_alpha<span class="sc">$</span>value <span class="sc">&lt;</span> <span class="fl">0.60</span> <span class="sc">~</span> <span class="st">&quot;Moderate agreement&quot;</span>,</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  overall_alpha<span class="sc">$</span>value <span class="sc">&lt;</span> <span class="fl">0.80</span> <span class="sc">~</span> <span class="st">&quot;Substantial agreement&quot;</span>,</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="cn">TRUE</span>                        <span class="sc">~</span> <span class="st">&quot;Almost perfect agreement&quot;</span></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Krippendorff&#39;s alpha =&quot;</span>, <span class="fu">round</span>(overall_alpha<span class="sc">$</span>value, <span class="dv">3</span>), <span class="st">&quot;-&quot;</span>, interpret_alpha)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>interpret_alpha <span class="ot">&lt;-</span> <span class="fu">case_when</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  overall_alpha<span class="sc">$</span>value <span class="sc">&lt;</span> <span class="fl">0.20</span> <span class="sc">~</span> <span class="st">&quot;Slight agreement&quot;</span>,</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  overall_alpha<span class="sc">$</span>value <span class="sc">&lt;</span> <span class="fl">0.40</span> <span class="sc">~</span> <span class="st">&quot;Fair agreement&quot;</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  overall_alpha<span class="sc">$</span>value <span class="sc">&lt;</span> <span class="fl">0.60</span> <span class="sc">~</span> <span class="st">&quot;Moderate agreement&quot;</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  overall_alpha<span class="sc">$</span>value <span class="sc">&lt;</span> <span class="fl">0.80</span> <span class="sc">~</span> <span class="st">&quot;Substantial agreement&quot;</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="cn">TRUE</span>                        <span class="sc">~</span> <span class="st">&quot;Almost perfect agreement&quot;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Krippendorff&#39;s alpha =&quot;</span>, <span class="fu">round</span>(overall_alpha<span class="sc">$</span>value, <span class="dv">3</span>), <span class="st">&quot;-&quot;</span>, interpret_alpha)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Krippendorff&#39;s alpha = 0.031 - Slight agreement</code></pre>
+<pre><code>Krippendorff&#39;s alpha = 0.021 - Slight agreement</code></pre>
 </div>
 </div>
 <p>Expert judges evaluated each item and voted to Keep, Drop, or Reword it. The majority vote determined the final recommendation for each item. When two options tied, the following rules resolved the decision.</p>
@@ -2320,31 +2308,31 @@ vertical-align: -.125em;
 <li>Keep and Drop ties favoured Keep, giving the item the benefit of the doubt for further evaluation in subsequent validation stages.</li>
 </ol>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>decisions <span class="ot">&lt;-</span> experts_data <span class="sc">%&gt;%</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">all_of</span>(cols_tpsai), <span class="at">names_to =</span> <span class="st">&quot;item&quot;</span>, <span class="at">values_to =</span> <span class="st">&quot;rating&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">rating =</span> <span class="fu">names</span>(choices)[rating]) <span class="sc">%&gt;%</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(item) <span class="sc">%&gt;%</span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_keep    =</span> <span class="fu">sum</span>(rating <span class="sc">==</span> <span class="st">&quot;Keep&quot;</span>),</span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_drop    =</span> <span class="fu">sum</span>(rating <span class="sc">==</span> <span class="st">&quot;Drop&quot;</span>),</span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_reword  =</span> <span class="fu">sum</span>(rating <span class="sc">==</span> <span class="st">&quot;Reword&quot;</span>),</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">pct_agree =</span> <span class="fu">round</span>(<span class="fu">max</span>(<span class="fu">table</span>(rating)) <span class="sc">/</span> <span class="fu">n</span>(), <span class="dv">2</span>),</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups   =</span> <span class="st">&quot;drop&quot;</span></span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">decision =</span> <span class="fu">case_when</span>(</span>
-<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>      n_reword <span class="sc">&gt;</span> n_keep  <span class="sc">&amp;</span> n_reword <span class="sc">&gt;</span> n_drop  <span class="sc">~</span> <span class="st">&quot;Reword&quot;</span>,</span>
-<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>      n_drop   <span class="sc">&gt;</span> n_keep  <span class="sc">&amp;</span> n_drop   <span class="sc">&gt;</span> n_reword <span class="sc">~</span> <span class="st">&quot;Drop&quot;</span>,</span>
-<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>      n_keep   <span class="sc">&gt;</span> n_drop  <span class="sc">&amp;</span> n_keep   <span class="sc">&gt;</span> n_reword <span class="sc">~</span> <span class="st">&quot;Keep&quot;</span>,</span>
-<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>      n_keep <span class="sc">==</span> n_reword <span class="sc">&amp;</span> n_keep <span class="sc">&gt;</span> n_drop    <span class="sc">~</span> <span class="st">&quot;Reword&quot;</span>,</span>
-<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>      n_drop <span class="sc">==</span> n_reword <span class="sc">&amp;</span> n_drop <span class="sc">&gt;</span> n_keep    <span class="sc">~</span> <span class="st">&quot;Drop&quot;</span>,</span>
-<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>      n_keep <span class="sc">==</span> n_drop  <span class="sc">&amp;</span> n_keep <span class="sc">&gt;</span> n_reword   <span class="sc">~</span> <span class="st">&quot;Keep&quot;</span></span>
-<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>    ),</span>
-<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">item =</span> <span class="fu">factor</span>(item, <span class="at">levels =</span> cols_tpsai)</span>
-<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(item)</span>
-<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(decisions, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Item&quot;</span>, <span class="st">&quot;Keep&quot;</span>, <span class="st">&quot;Drop&quot;</span>, <span class="st">&quot;Reword&quot;</span>, <span class="st">&quot;% Agreement&quot;</span>, <span class="st">&quot;Decision&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>decisions <span class="ot">&lt;-</span> experts_data <span class="sc">%&gt;%</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">all_of</span>(cols_tpsai), <span class="at">names_to =</span> <span class="st">&quot;item&quot;</span>, <span class="at">values_to =</span> <span class="st">&quot;rating&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">rating =</span> <span class="fu">names</span>(choices)[rating]) <span class="sc">%&gt;%</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(item) <span class="sc">%&gt;%</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_keep    =</span> <span class="fu">sum</span>(rating <span class="sc">==</span> <span class="st">&quot;Keep&quot;</span>),</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_drop    =</span> <span class="fu">sum</span>(rating <span class="sc">==</span> <span class="st">&quot;Drop&quot;</span>),</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_reword  =</span> <span class="fu">sum</span>(rating <span class="sc">==</span> <span class="st">&quot;Reword&quot;</span>),</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">pct_agree =</span> <span class="fu">round</span>(<span class="fu">max</span>(<span class="fu">table</span>(rating)) <span class="sc">/</span> <span class="fu">n</span>(), <span class="dv">2</span>),</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups   =</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">decision =</span> <span class="fu">case_when</span>(</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>      n_reword <span class="sc">&gt;</span> n_keep  <span class="sc">&amp;</span> n_reword <span class="sc">&gt;</span> n_drop  <span class="sc">~</span> <span class="st">&quot;Reword&quot;</span>,</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>      n_drop   <span class="sc">&gt;</span> n_keep  <span class="sc">&amp;</span> n_drop   <span class="sc">&gt;</span> n_reword <span class="sc">~</span> <span class="st">&quot;Drop&quot;</span>,</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>      n_keep   <span class="sc">&gt;</span> n_drop  <span class="sc">&amp;</span> n_keep   <span class="sc">&gt;</span> n_reword <span class="sc">~</span> <span class="st">&quot;Keep&quot;</span>,</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>      n_keep <span class="sc">==</span> n_reword <span class="sc">&amp;</span> n_keep <span class="sc">&gt;</span> n_drop    <span class="sc">~</span> <span class="st">&quot;Reword&quot;</span>,</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>      n_drop <span class="sc">==</span> n_reword <span class="sc">&amp;</span> n_drop <span class="sc">&gt;</span> n_keep    <span class="sc">~</span> <span class="st">&quot;Drop&quot;</span>,</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>      n_keep <span class="sc">==</span> n_drop  <span class="sc">&amp;</span> n_keep <span class="sc">&gt;</span> n_reword   <span class="sc">~</span> <span class="st">&quot;Keep&quot;</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">item =</span> <span class="fu">factor</span>(item, <span class="at">levels =</span> cols_tpsai)</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(item)</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(decisions, <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Item&quot;</span>, <span class="st">&quot;Keep&quot;</span>, <span class="st">&quot;Drop&quot;</span>, <span class="st">&quot;Reword&quot;</span>, <span class="st">&quot;% Agreement&quot;</span>, <span class="st">&quot;Decision&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <thead>
@@ -2359,7 +2347,7 @@ vertical-align: -.125em;
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">TR_1</td>
+<td style="text-align: left;">COMP_01</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">3</td>
@@ -2367,7 +2355,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_2</td>
+<td style="text-align: left;">COMP_02</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
@@ -2375,7 +2363,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_3</td>
+<td style="text-align: left;">COMP_03</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
@@ -2383,7 +2371,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_4</td>
+<td style="text-align: left;">COMP_04</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: right;">1</td>
@@ -2391,7 +2379,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Drop</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_5</td>
+<td style="text-align: left;">COMP_05</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
@@ -2399,7 +2387,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_6</td>
+<td style="text-align: left;">PERS_01</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">2</td>
@@ -2407,7 +2395,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Drop</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_7</td>
+<td style="text-align: left;">PERS_02</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
@@ -2415,7 +2403,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_8</td>
+<td style="text-align: left;">PERS_03</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
@@ -2423,7 +2411,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_9</td>
+<td style="text-align: left;">PERS_04</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">2</td>
@@ -2431,7 +2419,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Drop</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_10</td>
+<td style="text-align: left;">PERS_05</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
@@ -2439,7 +2427,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_11</td>
+<td style="text-align: left;">EMOT_01</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">4</td>
@@ -2447,7 +2435,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_12</td>
+<td style="text-align: left;">EMOT_02</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
@@ -2455,7 +2443,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_13</td>
+<td style="text-align: left;">EMOT_03</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
@@ -2463,7 +2451,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_14</td>
+<td style="text-align: left;">EMOT_04</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
@@ -2471,7 +2459,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_15</td>
+<td style="text-align: left;">EMOT_05</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
@@ -2479,7 +2467,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_16</td>
+<td style="text-align: left;">SAFE_01</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
@@ -2487,7 +2475,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_17</td>
+<td style="text-align: left;">SAFE_02</td>
 <td style="text-align: right;">5</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
@@ -2495,7 +2483,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_18</td>
+<td style="text-align: left;">SAFE_03</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">3</td>
@@ -2503,7 +2491,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_19</td>
+<td style="text-align: left;">SAFE_04</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
@@ -2511,7 +2499,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_20</td>
+<td style="text-align: left;">SAFE_05</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
@@ -2519,7 +2507,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_21</td>
+<td style="text-align: left;">RISK_01</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
@@ -2527,7 +2515,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">TR_22</td>
+<td style="text-align: left;">RISK_02</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
@@ -2535,7 +2523,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">TR_23</td>
+<td style="text-align: left;">RISK_03</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">3</td>
@@ -2543,7 +2531,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">DT_1</td>
+<td style="text-align: left;">RISK_04</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">2</td>
@@ -2551,7 +2539,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Drop</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">DT_2</td>
+<td style="text-align: left;">RISK_05</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
@@ -2559,7 +2547,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">DT_3</td>
+<td style="text-align: left;">CORP_01</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">1</td>
@@ -2567,7 +2555,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">DT_4</td>
+<td style="text-align: left;">CORP_02</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">3</td>
@@ -2575,7 +2563,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">DT_5</td>
+<td style="text-align: left;">CORP_03</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
@@ -2583,7 +2571,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">DT_6</td>
+<td style="text-align: left;">CORP_04</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: right;">1</td>
@@ -2591,7 +2579,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Drop</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">DT_7</td>
+<td style="text-align: left;">CORP_05</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
@@ -2599,7 +2587,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Drop</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">DT_8</td>
+<td style="text-align: left;">CRIT_01</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: right;">0</td>
@@ -2607,7 +2595,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Drop</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">DT_9</td>
+<td style="text-align: left;">CRIT_02</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
@@ -2615,7 +2603,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">DT_10</td>
+<td style="text-align: left;">CRIT_03</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">4</td>
@@ -2623,7 +2611,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">DT_11</td>
+<td style="text-align: left;">CRIT_04</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
@@ -2631,7 +2619,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">DT_12</td>
+<td style="text-align: left;">CRIT_05</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
@@ -2639,7 +2627,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Keep</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">DT_13</td>
+<td style="text-align: left;">HUMN_01</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
@@ -2647,7 +2635,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Drop</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">CD_1</td>
+<td style="text-align: left;">HUMN_02</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
@@ -2655,7 +2643,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">CD_2</td>
+<td style="text-align: left;">HUMN_03</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">2</td>
@@ -2663,7 +2651,7 @@ vertical-align: -.125em;
 <td style="text-align: left;">Drop</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">CD_3</td>
+<td style="text-align: left;">HUMN_04</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
@@ -2671,35 +2659,11 @@ vertical-align: -.125em;
 <td style="text-align: left;">Reword</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">CD_4</td>
+<td style="text-align: left;">HUMN_05</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: right;">0.4</td>
-<td style="text-align: left;">Reword</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">CD_5</td>
-<td style="text-align: right;">2</td>
-<td style="text-align: right;">2</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">0.4</td>
-<td style="text-align: left;">Keep</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">CD_6</td>
-<td style="text-align: right;">4</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">0.8</td>
-<td style="text-align: left;">Keep</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">CD_7</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">4</td>
-<td style="text-align: right;">0.8</td>
 <td style="text-align: left;">Reword</td>
 </tr>
 </tbody>
