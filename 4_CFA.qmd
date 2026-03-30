@@ -19,19 +19,22 @@ library(knitr)
 library(lavaan)
 library(semTools)
 
-set.seed(8675309)
+seed <- 2641388
+set.seed(seed) # makes sure random numbers are reproducible
 ```
 
 ```{r}
 options(readr.show_col_types = FALSE)
 
-source("read_qualtrics_data.R")
-d <- load_data("data/pilot/TPSai_17+March+2026_16.59.csv")
-cols_tpsai <- d$cols_tpsai
+source("simulate_data.R")
 
-# switch to d$items_data after data collection
-cfa_data <- read_csv("data/pilot/simulated_cfa_data.csv") %>%
-  select(all_of(cols_tpsai))
+cfa_data <- simulate_data(
+  sample_path = "data/pilot/TPSai_29+March+2026_15.56.csv", 
+  factors_path =  "data/factors.csv",
+  seed = seed,
+  n = 300)
+
+cols_tpsai <- names(cfa_data)[c(2:41)]
 ```
 
 Confirmatory factor analysis (CFA) tests whether a hypothesised factor structure — derived from theory and/or EFA results — replicates in the data. Unlike EFA, which lets the data reveal structure freely, CFA is a hypothesis-testing procedure: we specify in advance which items load onto which factors and which cross-loadings are constrained to zero, then evaluate how well that model fits the observed covariance matrix.
@@ -41,28 +44,21 @@ We use the **WLSMV** (weighted least squares, mean- and variance-adjusted) estim
 # Build Models
 
 ```{r}
-trust_1f_model <- cfa(paste("TR =~", paste(d$cols_trust, collapse = " + ")),
-                      cfa_data, estimator = "WLSMV", ordered = TRUE)
+model_1F <- paste("MR1 =~", paste(cols_tpsai, collapse = " + "))
 
-distrust_1f_model <- cfa(paste("DT =~", paste(d$cols_distrust, collapse = " + "), " + ",
-                               paste(d$cols_company, collapse = " + ")),
-                      cfa_data, estimator = "WLSMV", ordered = TRUE)
+model_EFA <- '
+MR2 =~ COMP_01 + COMP_02 + COMP_03 + CRIT_02 + HUMN_01 + HUMN_04 + PERS_01 + PERS_03 + PERS_04 + RISK_01 + SAFE_01 + SAFE_03
+MR1 =~ CORP_01 + CORP_03 + CORP_05 + CRIT_03 + CRIT_04 + HUMN_03 + HUMN_05 + RISK_02 + RISK_04 + SAFE_04
+MR3 =~ CRIT_01 + CRIT_05 + EMOT_01 + EMOT_02 + EMOT_05 + PERS_02 + PERS_05 + SAFE_02
+MR4 =~ COMP_05 + CORP_02 + EMOT_03 + RISK_03
+MR5 =~ COMP_04 + CORP_04 + EMOT_04 + HUMN_02 + RISK_05 + SAFE_05
+'
 ```
 
 ```{r}
-trust_efa_eq <- '
-  MR1 =~ TR_02 + TR_04 + TR_06 + TR_09 + TR_10 + TR_12 + TR_13 + TR_14 + TR_15 + TR_16 + TR_18 + TR_20 + TR_22
-  MR2 =~ TR_01 + TR_03 + TR_05 + TR_07 + TR_08 + TR_11 + TR_17 + TR_19 + TR_21
-'
-trust_efa_model <- cfa(trust_efa_eq,
-                      cfa_data, estimator = "WLSMV", ordered = TRUE)
+cfa_model_1F <- cfa(model_1F, cfa_data, estimator = "WLSMV", ordered = TRUE)
 
-distrust_efa_eq <- '
-MR1 =~ DT_01 + DT_02 + DT_04 + DT_06 + DT_10 + DT_11 + DT_13 + DT_14 + CD_04 + CD_05
-MR2 =~ DT_03 + DT_05 + DT_07 + DT_08 + DT_09 + DT_12 + CD_01 + CD_02 + CD_03 + CD_06 + CD_07
-'
-distrust_efa_model <- cfa(distrust_efa_eq,
-                        cfa_data, estimator = "WLSMV", ordered = TRUE)
+cfa_model_EFA <- cfa(model_EFA, cfa_data, estimator = "WLSMV", ordered = TRUE)
 ```
 
 # Model Fit
@@ -77,13 +73,12 @@ We evaluate fit using the indices recommended by @boateng2018 and @briones2026. 
 | SRMR  | ≤ .06    | .06–.08    | \> .08   |
 
 ```{r}
-extract_fit <- function(fit, subscale, model_label) {
+extract_fit <- function(fit, model_label) {
   fi <- fitMeasures(fit, c("chisq", "df", "pvalue",
                             "cfi", "tli",
                             "rmsea", "rmsea.ci.lower", "rmsea.ci.upper",
                             "srmr"))
   tibble(
-    Subscale = subscale,
     Model    = model_label,
     `χ²`    = round(fi["chisq"], 2),
     df       = fi["df"],
@@ -98,22 +93,14 @@ extract_fit <- function(fit, subscale, model_label) {
 }
 
 bind_rows(
-  extract_fit(trust_1f_model, "Trust", "1F"),
-  extract_fit(trust_efa_model, "Trust", "EFA"),
-  extract_fit(distrust_1f_model, "Disrust", "1F"),
-  extract_fit(distrust_efa_model, "Disrust", "EFA"),
+  extract_fit(cfa_model_1F, "1F"),
+  extract_fit(cfa_model_EFA, "EFA"),
 ) %>%
   kable()
 ```
 
-We can also compare models with a scaled chi-square difference test.
-
-We prefer more complex models when **both** criteria are met: the difference test is significant (p \< .05) and ΔCFI \> .01. Using both criteria guards against retaining a complex model purely on the basis of a statistically significant but practically trivial improvement in fit.
+We can also compare models with a scaled chi-square difference test. We prefer more complex models when **both** criteria are met: the difference test is significant (p \< .05) and ΔCFI \> .01. Using both criteria guards against retaining a complex model purely on the basis of a statistically significant but practically trivial improvement in fit.
 
 ```{r}
-lavTestLRT(trust_1f_model, trust_efa_model, model.names = c("1F", "EFA"))
-```
-
-```{r}
-lavTestLRT(distrust_1f_model, distrust_efa_model, model.names = c("1F", "EFA"))
+lavTestLRT(cfa_model_1F, cfa_model_EFA, model.names = c("1F", "EFA"))
 ```
