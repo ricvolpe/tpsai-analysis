@@ -24,6 +24,7 @@ set.seed(seed) # makes sure random numbers are reproducible
 ```
 
 ```{r}
+# TODO: replace with real data once available
 source("simulate_data.R")
 
 efa_data <- simulate_data(
@@ -45,28 +46,15 @@ We use EFA to assess whether our theoretical factor structure is confirmed by th
 
 ## Factorability
 
-Before applying EFA, we examine two factorability checks:
+Before applying EFA, we examine the Kaiser-Meyer-Olkin (KMO) index which asks whether the correlations among items are sufficiently compact and patterned to yield reliable factors. Values above .80 indicate good sampling adequacy and values above .90 are excellent. We treat KMO as our primary indicator of factorability.
 
-1.  The Kaiser-Meyer-Olkin (KMO) index asks whether the correlations among items are sufficiently compact and patterned to yield reliable factors. Values above .80 indicate good sampling adequacy and values above .90 are excellent. We treat KMO as our primary indicator of factorability.
+Thorughout our EFA analysis, we use polychoric correlation matrix rather than the standard Pearson correlation matrix, as polychoric correlations are more appropriate for ordinal Likert data [@boateng2018].
 
-2.  Bartlett's test of sphericity asks a simpler question: is the correlation matrix significantly different from an identity matrix, where all items would be completely uncorrelated? A significant result (p \< .05) confirms there is at least some correlation structure for factor analysis to work with. However, Bartlett's test is sensitive to sample size and tends to be significant even when correlations are trivially small, so we report it for completeness rather than as a primary decision criterion.
-
-Both tests are computed on the polychoric correlation matrix rather than the standard Pearson correlation matrix, as polychoric correlations are more appropriate for ordinal Likert data [@boateng2018].
-
-```{r, echo=FALSE}
-
-factorability <- function(R, n) {
-  tibble(
-    KMO  = KMO(R)$MSA,
-    CHI2 = cortest.bartlett(R, n)$chisq,
-    DF   = cortest.bartlett(R, n)$df,
-    p    = cortest.bartlett(R, n)$p.value
-  )
-}
+```{r}
 
 R <- polychoric(efa_data %>% select(all_of(cols_tpsai)))$rho
 
-factorability(R, nrow(efa_data)) %>% kable(digits = 2)
+KMO(R)$MSA
 ```
 
 ## Parallel Analysis
@@ -155,9 +143,7 @@ plot_loadings <- function(efa, order = c("theoretical", "empirical")) {
 }
 ```
 
-We visualise how the items load across factors through a heat-map. First, are interested to see whether the empirical factor structure suggested by EFA matches our theoretical factor structure. Thus we plot the EFA results ordered by theoretical factors.
-
-In our plot, we hide the value of loadings below 0.3 to avoid visual cluttering.
+We visualise how the items load across factors through a heat-map. First, are interested to see whether the empirical factor structure suggested by EFA matches our theoretical factor structure. Thus we plot the EFA results ordered by theoretical factors. In our plot, we hide the value of loadings below 0.3 to avoid visual cluttering.
 
 ```{r}
 #| fig-width: 7
