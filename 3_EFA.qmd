@@ -224,6 +224,8 @@ cor(factors, method = "spearman", use = "pairwise.complete.obs") %>%
 
 ## Cronbach Alpha
 
+> Cronbach's alpha is a measure of internal consistency reliability, quantifying the degree to which items within a factor covary and can therefore be considered indicators of the same underlying construct. Conceptually, it reflects the average inter-item correlation within a factor, weighted by the number of items. Importantly, alpha is not a measure of unidimensionality: a factor can have acceptable alpha while still containing sub-dimensions, which is why we complement it with item-level analyses below.
+
 We then assess the internal consistency of each factor using ordinal Cronbach's alpha, computed from the polychoric correlation matrix to account for the ordinal nature of our items.We interpret α ≥ .90 as excellent, .80–.89 as good, .70–.79 as acceptable, .60–.69 as questionable, and below .60 as poor.
 
 ```{r}
@@ -306,7 +308,50 @@ cols_tpsai %>%
   scale_y_discrete(limits = rev)
 ```
 
-## Cross-factor inter-item correlations
+## Cross-factor correlations
+
+### Item-factor correlations
+
+We repeat the above analysis of item-factor correlations but this time looking at items correlate with factors that they are not assigned to it.
+
+```{r}
+#| fig-width: 7
+#| fig-height: 9
+
+rho_full <- efa_data %>% 
+  select(all_of(cols_tpsai)) %>% 
+  polychoric() %>% 
+  .$rho
+
+factors <- split(cols_tpsai, sub("_.*", "", cols_tpsai))
+
+imap_dfr(factors, function(focal_cols, focal_name) {
+  imap_dfr(factors[names(factors) != focal_name], function(other_cols, other_name) {
+    map_dfr(focal_cols, function(col) {
+      idx_item  <- which(rownames(rho_full) == col)
+      idx_other <- which(rownames(rho_full) %in% other_cols)
+      cov_ir    <- sum(rho_full[idx_item, idx_other])
+      var_rest  <- sum(rho_full[idx_other, idx_other])
+      tibble(item = col, other_factor = other_name, it_corr = cov_ir / sqrt(var_rest))
+    })
+  })
+}) %>% 
+  mutate(item = factor(item, levels = rev(cols_tpsai))) %>%
+  ggplot(aes(x = other_factor, y = item, fill = it_corr)) +
+  geom_tile() +
+  geom_text(aes(label = round(it_corr, 2)), size = 3) +
+  scale_fill_gradientn(
+    colours = c("#e8883a", "#efefef", "#c94040"),
+    values  = scales::rescale(c(-1, 0, 1)),
+    limits  = c(-1, 1)
+  ) +
+  labs(x = "", y = "", fill = "r") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid = element_blank()) +
+  scale_x_discrete(position = "top")
+```
+
+### Inter-item correlations
 
 Lastly, we examine pairwise inter-item correlations across factors. Items from different factors correlating above .70 share more than 49% of their variance (r² = .49), suggesting they may be measuring the same underlying concept despite their theoretical assignment. Where such pairs are identified, we consider whether the affected items should be reassigned to a different factor or removed. Where high cross-factor correlations cluster around a specific pair of factors, we revisit whether those factors should be merged.
 

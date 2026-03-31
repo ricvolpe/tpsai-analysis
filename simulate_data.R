@@ -12,7 +12,7 @@ simulate_data <- function(sample_path, factors_path, seed = 8675309, shrinkage =
   cols_tpsai <- d$item_ids
   
   factors_data <- items_data |>
-    select(cols_tpsai) |>
+    select(all_of(cols_tpsai)) |>
     mutate(across(everything(), ~replace_na(.x, 4)))
   
   raw_cor <- cor(factors_data, method = 'spearman', use = "pairwise.complete.obs")
