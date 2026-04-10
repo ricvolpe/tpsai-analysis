@@ -28,7 +28,7 @@ set.seed(seed) # makes sure random numbers are reproducible
 source("simulate_data.R")
 
 efa_data <- simulate_data(
-  sample_path = "data/pilot/TPSai_29+March+2026_15.56.csv", 
+  sample_path = "data/pilot/TPSai_2+April+2026_12.43.csv", 
   factors_path =  "data/factors.csv",
   seed = seed,
   n = 250)
