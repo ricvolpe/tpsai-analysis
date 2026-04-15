@@ -182,3 +182,16 @@ ggplot(factor_summary, aes(x = factor, y = percentage, fill = decision)) +
   theme_minimal(base_size = 13) +
   theme(legend.position   = "top")
 ```
+
+# Factors to add
+
+```{r}
+analysis_data$COMP_ADD
+analysis_data$PERS_ADD
+analysis_data$EMOT_ADD
+analysis_data$SAFE_ADD
+analysis_data$RISK_ADD
+analysis_data$CORP_ADD
+analysis_data$CRIT_ADD
+analysis_data$HUMN_ADD
+```
