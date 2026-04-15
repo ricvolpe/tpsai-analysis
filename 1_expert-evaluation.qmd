@@ -26,7 +26,7 @@ set.seed(8675309) # makes sure random numbers are reproducible
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/pilot/TPSai+-+Experts_29+March+2026_15.56.csv"
+file_path <- "data/TPSai+-+Experts_15+April+2026_16.33.csv"
 raw_data <- read_csv(file_path, n_max = 2)
 colnames <- names(raw_data)
 question_labels <- setNames(sub(" - .*", "", as.character(raw_data[1, ])), colnames)
@@ -59,7 +59,7 @@ colnames(random_data) <- cols_tpsai
 ```
 
 ```{r}
-analysis_data <- random_data # switch to raw_data after data collection
+analysis_data <- raw_data # switch to raw_data after data collection
 
 experts_data <- analysis_data %>%
   select(all_of(cols_tpsai))  %>%
@@ -72,7 +72,7 @@ experts_data <- analysis_data %>%
 ratings_matrix <- experts_data %>%
   select(all_of(cols_tpsai)) %>%
   mutate(across(everything(), as.integer)) %>%
-  as.matrix()
+  as.matrix() 
 
 overall_alpha <- kripp.alpha(ratings_matrix, method = "nominal")
 overall_alpha
@@ -87,6 +87,29 @@ interpret_alpha <- case_when(
 
 cat("Krippendorff's alpha =", round(overall_alpha$value, 3), "-", interpret_alpha)
 ```
+
+## Inter-disciplinary expertise
+
+Examining the inter-disciplinary nature of expertise by showing which expert had which expertise.
+
+```{r}
+expr_raw <- analysis_data$EXPR
+
+tibble(expert = paste0("E", seq_along(expr_raw)), discipline = expr_raw) %>%
+  separate_rows(discipline, sep = ",") %>%
+  mutate(discipline = str_trim(discipline)) %>%
+  mutate(discipline = fct_infreq(discipline) %>% fct_rev()) %>%  # <- add this
+  ggplot(aes(x = expert, y = discipline)) +
+  geom_tile(fill = "#378ADD", colour = "white", linewidth = 0.5) +
+  labs(x = NULL, y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid  = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+# Expert Evaluations
 
 Expert judges evaluated each item and voted to Keep, Drop, or Reword it. The majority vote determined the final recommendation for each item. When two options tied, the following rules resolved the decision.
 
@@ -120,4 +143,42 @@ decisions <- experts_data %>%
   arrange(item)
 
 kable(decisions, col.names = c("Item", "Keep", "Drop", "Reword", "% Agreement", "Decision"))
+```
+
+## Decisions by theoretical factor
+
+```{r}
+factor_summary <- decisions %>%
+  mutate(factor = str_extract(item, "^[A-Z]+")) %>%
+  group_by(factor) %>%
+  summarise(
+    keep   = sum(n_keep),
+    drop   = sum(n_drop),
+    reword = sum(n_reword),
+    total  = keep + drop + reword
+  ) %>%
+  mutate(
+    pct_keep   = keep   / total * 100,
+    pct_reword = reword / total * 100,
+    pct_drop   = drop   / total * 100
+  ) %>%
+  pivot_longer(
+    cols = starts_with("pct_"),
+    names_to = "decision",
+    names_prefix = "pct_",
+    values_to = "percentage"
+  ) %>%
+  mutate(decision = factor(str_to_title(decision), levels = c("Keep", "Reword", "Drop")))
+
+ggplot(factor_summary, aes(x = factor, y = percentage, fill = decision)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c(
+    "Keep"   = "#639922",
+    "Reword" = "#BA7517",
+    "Drop"   = "#E24B4A"
+  )) +
+  labs(x = NULL, y = NULL, fill = NULL, title = NULL) +
+  scale_y_continuous(labels = scales::label_percent(scale = 1), expand = c(0, 0)) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position   = "top")
 ```
