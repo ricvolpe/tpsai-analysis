@@ -24,7 +24,7 @@ set.seed(8675309) # makes sure random numbers are reproducible
 
 ```{r}
 source("read_qualtrics_data.R")
-d <- load_data("data/pilot/TPSai_16+April+2026_16.43.csv", "data/factors.csv")
+d <- load_data("data/pilot/TPSai_17+April+2026_22.31.csv", "data/factors.csv", version ="v2")
 items_data <- d$items_data
 cols_tpsai <- d$item_ids
 ```
@@ -112,14 +112,25 @@ if (nrow(skew_items) > 0) {
 Beyond flagging items with high skew, we can also visually inspect the distribution of each item, looking for items where people consistently avoid using certain points in the scale such as items with responses clustered at the top and end of the scale (Bimodal distribution) or items where some scale points are consistently not used. These items might need to be reworded or removed depending on their distributional shape.
 
 ```{r}
-#| fig-width: 12
-#| fig-height: 14
-items_data %>% 
+#| fig-height: 2.5
+#| fig-width: 10
+long_data <- items_data %>%
   pivot_longer(everything(), names_to = "item", values_to = "response") %>%
-  ggplot(aes(x = factor(response))) +
-  geom_bar(fill = "#D85A30") +
-  scale_x_discrete(limits = as.character(1:7)) +
-  facet_wrap(~ item, ncol = 5) +
-  labs(x = "", y = "") +
-  theme_minimal(base_size = 16)
+  mutate(factor = sub("_.*", "", item))
+
+y_max <- long_data %>% count(item, response) %>% pull(n) %>% max()
+
+for (f in unique(long_data$factor)) {
+  p <- long_data %>%
+    filter(factor == f) %>%
+    ggplot(aes(x = factor(response))) +
+    geom_bar(fill = "#D85A30") +
+    scale_x_discrete(limits = as.character(1:7)) +
+    coord_cartesian(ylim = c(0, y_max)) +
+    facet_wrap(~ item, nrow = 1) +
+    labs(x = "", y = "") +
+    theme_minimal(base_size = 16)
+  
+  print(p)
+}
 ```
