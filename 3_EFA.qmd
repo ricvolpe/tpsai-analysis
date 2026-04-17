@@ -28,7 +28,7 @@ set.seed(seed) # makes sure random numbers are reproducible
 source("simulate_data.R")
 
 efa_data <- simulate_data(
-  sample_path = "data/pilot/TPSai_2+April+2026_12.43.csv", 
+  sample_path = "data/pilot/TPSai_16+April+2026_16.43.csv", 
   factors_path =  "data/factors.csv",
   seed = seed,
   n = 250)
@@ -82,7 +82,7 @@ fa <- fa.parallel(R, n.obs = nrow(efa_data), fm = "minres", fa = "fa")
 ```{r}
 efa <- fa(
   r=R, 
-  nfactors = fa$nfact,
+  nfactors = fa$nfact, # can ither user `fa$nfact` or visual 'elbow' criteria from plot
   n.obs = nrow(efa_data),
   fm = "minres",
   rotate = "oblimin"
@@ -353,10 +353,10 @@ imap_dfr(factors, function(focal_cols, focal_name) {
 
 ### Inter-item correlations
 
-Lastly, we examine pairwise inter-item correlations across factors. Items from different factors correlating above .70 share more than 49% of their variance (r² = .49), suggesting they may be measuring the same underlying concept despite their theoretical assignment. Where such pairs are identified, we consider whether the affected items should be reassigned to a different factor or removed. Where high cross-factor correlations cluster around a specific pair of factors, we revisit whether those factors should be merged.
+Lastly, we examine pairwise inter-item correlations. Items correlating above .65 suggest they may be measuring the same underlying concept. Where such pairs are identified, we consider whether the affected items should be merged, reassigned to a different factor, or removed.
 
 ```{r}
-ii_cor_threshold <- 0.7
+ii_cor_threshold <- 0.65
 
 efa_data %>%
   select(all_of(cols_tpsai)) %>%
@@ -366,7 +366,7 @@ efa_data %>%
   pivot_longer(-item1, names_to = "item2", values_to = "r") %>%
   filter(r > -1 & r < 1) %>%
   filter(item1 < item2) %>% 
-  filter(sub("_.*", "", item1) != sub("_.*", "", item2)) %>% 
-  filter(r > ii_cor_threshold) %>%
+  # filter(sub("_.*", "", item1) != sub("_.*", "", item2)) %>% # within-factor filter
+  filter(abs(r) > ii_cor_threshold) %>%
   knitr::kable(digits = 2)
 ```

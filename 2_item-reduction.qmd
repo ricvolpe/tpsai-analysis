@@ -24,7 +24,7 @@ set.seed(8675309) # makes sure random numbers are reproducible
 
 ```{r}
 source("read_qualtrics_data.R")
-d <- load_data("data/pilot/TPSai_29+March+2026_15.56.csv", "data/factors.csv")
+d <- load_data("data/pilot/TPSai_16+April+2026_16.43.csv", "data/factors.csv")
 items_data <- d$items_data
 cols_tpsai <- d$item_ids
 ```
@@ -56,7 +56,7 @@ ggplot(missing_data, aes(x = missing, fill = factor)) +
 
 ```{r}
 missing_items <- missing_data %>%
-  filter(missing > missing_threshold) %>%  # add in other criteria from visual inspection
+  filter(missing > missing_threshold | missing > 0.1) %>%  # add in other criteria from visual inspection
   select(factor, item, missing) %>% 
   arrange(desc(missing))
 
