@@ -36,6 +36,19 @@ efa_data <- simulate_data(
 cols_tpsai <- names(efa_data)[c(2:41)]
 ```
 
+```{r}
+#| eval: false
+#| include: false
+# trying with factors v2
+lookup <- read.csv("data/factors_v2.csv", stringsAsFactors = FALSE)
+idx <- match(names(efa_data), lookup$v1)
+names(efa_data)[!is.na(idx)] <- lookup$v2[idx[!is.na(idx)]]
+cols_tpsai <- lookup$v2
+
+# reverse items swapped from trust to distrust
+efa_data$COR_05 <- 8 - efa_data$COR_05
+```
+
 # Exploratory Factor Analysis
 
 *Brief Explainer*
