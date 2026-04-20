@@ -26,7 +26,7 @@ set.seed(8675309) # makes sure random numbers are reproducible
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+-+Experts_15+April+2026_16.33.csv"
+file_path <- "data/TPSai+-+Experts_20+April+2026_22.27.csv"
 raw_data <- read_csv(file_path, n_max = 2)
 colnames <- names(raw_data)
 question_labels <- setNames(sub(" - .*", "", as.character(raw_data[1, ])), colnames)
@@ -34,7 +34,7 @@ raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
 ```
 
 ```{r}
-factors_map <- read_csv('data/factors.csv')
+factors_map <- read_csv('data/factors_v1.csv')
 cols_tpsai <- factors_map$IID
 choices <- c("Keep" = 1, "Drop" = 2, "Reword" = 3)
 ```

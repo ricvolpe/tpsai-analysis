@@ -15,7 +15,7 @@ load_data <- function(file_path, factors_path, version = c("v1", "v2")) {
     #     displayed at random within each matrix. Interleave so the
     #     ordering is COMP_01, COMP_03, ... i.e. matches factors_map$IID.
     v1 = c(rbind(paste0("OD_", 1:20), paste0("EV_", 1:20))),
-    # v2: items displayed orderly as TPSAI_01 ... TPSAI_40,
+    # v2: items displayed orderly as TPSAI_1 ... TPSAI_40,
     #     one-to-one with factors_map$IID in file order.
     v2 = sprintf("TPSAI_%d", seq_along(item_ids))
   )
