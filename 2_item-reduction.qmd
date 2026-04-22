@@ -134,3 +134,35 @@ for (f in unique(long_data$factor)) {
   print(p)
 }
 ```
+# Item Statistics
+
+To complement the diagnostic checks above, we compile a single table of descriptive statistics for all items. This provides an at-a-glance reference showing sample size, central tendency, dispersion, and distributional shape for each item, alongside the missingness and skewness values used in our screening decisions.
+
+```{r}
+item_stats <- items_data %>%
+  select(all_of(cols_tpsai)) %>%
+  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
+  separate(item, c("factor", "q_n"), sep = "_", remove = FALSE) %>%
+  group_by(factor, item) %>%
+  summarise(
+    n        = sum(!is.na(response)),
+    missing  = mean(is.na(response)),
+    mean     = mean(response, na.rm = TRUE),
+    sd       = sd(response, na.rm = TRUE),
+    median   = median(response, na.rm = TRUE),
+    min      = suppressWarnings(min(response, na.rm = TRUE)),
+    max      = suppressWarnings(max(response, na.rm = TRUE)),
+    skew     = psych::skew(response, na.rm = TRUE),
+    kurtosis = psych::kurtosi(response, na.rm = TRUE),
+    .groups  = "drop"
+  ) %>%
+  arrange(factor, item)
+
+item_stats %>%
+  knitr::kable(
+    digits = 2,
+    col.names = c("Factor", "Item", "N", "Missing", "Mean", "SD",
+                  "Median", "Min", "Max", "Skew", "Kurtosis"),
+    caption = "Descriptive statistics for all items."
+  )
+```
