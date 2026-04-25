@@ -24,9 +24,10 @@ set.seed(8675309) # makes sure random numbers are reproducible
 
 ```{r}
 source("read_qualtrics_data.R")
-d <- load_data("data/pilot/TPSai_17+April+2026_22.31.csv", "data/factors.csv", version ="v2")
+d <- load_data("data/TPSai+-+Pilot+Tester_25+April+2026_12.53.csv", "data/factors_v1.1.csv")
 items_data <- d$items_data
 cols_tpsai <- d$item_ids
+nrow(items_data)
 ```
 
 # High missingness
@@ -49,15 +50,21 @@ missing_data <- items_data %>%
   ) %>%
   separate(item, c("factor", "q_n"), sep = "_", remove = FALSE)
 
+# adding another threshold at 0.1 from visual inspection
+v_missing_threshold <- 0.1
+
 ggplot(missing_data, aes(x = missing, fill = factor)) +
-  geom_histogram(binwidth = 0.01) +
-  geom_vline(xintercept = missing_threshold)
+  geom_histogram(binwidth = 0.0075) +
+  geom_vline(xintercept = missing_threshold) +
+  geom_vline(xintercept = v_missing_threshold, linetype="dashed",color='red')
 ```
+
+5% threshold means more than `{r} nrow(items_data) * 0.05` missing responses out of `{r} nrow(items_data)`.
 
 ```{r}
 missing_items <- missing_data %>%
-  filter(missing > missing_threshold | missing > 0.1) %>%  # add in other criteria from visual inspection
-  select(factor, item, missing) %>% 
+  filter(missing > missing_threshold | missing > v_missing_threshold) %>%
+  select(item, missing) %>% 
   arrange(desc(missing))
 
 if (nrow(missing_items) > 0) {
@@ -67,43 +74,54 @@ if (nrow(missing_items) > 0) {
 
 # Distributional Shapes
 
-## Skewness
+## Skewness and Kurtosis
 
-We examine skewness to check whether any item responses cluster toward one end of the scale.
+We examine skewness and kurtosis for each item to check whether responses are spread across the scale or piled up at one end. If everyone scores high/low on an item, it means that the item is too easy/hard to endorse and cannot discriminate between people with high versus low levels of that trait being measured. Moreover, items where most people gave the same answer have little variation, which makes it harder for factor analysis to detect the underlying structure, regardless of the estimation method used.
 
--   Items with **negative skew** (left tail) may have a "ceiling effect" where an item is too easy to endorse and almost everyone agrees.
+-   Items with **negative skew** and **high positive kurtosis** (left tail) may have a "ceiling effect" where an item is too easy to endorse and almost everyone agrees.
 
--   Items with **positive skew** (right tail) may have a "floor effect" where an item is too extreme to endorse and very few people agree.
+-   Items with **positive skew** and **high negative kurtosis**(right tail) may have a "floor effect" where an item is too extreme to endorse and very few people agree.
 
-Following @kline2016, we inspect for absolute skewness values above 1.5. Items exceeding this threshold will be considered for removal. We also sure the same visual inspect method as high missingness item for the detection of visual discontinuities in skewness values
+Avoiding ceiling/floor effects is crucial because if items cluster at the extremes, you lose the ability to distinguish among people at those ends.
+
+Following @kline2016, we treat absolute skewness and kurtosis values above 1.5 as a sign that an item's responses are too bunched together to be useful. Items exceeding this threshold will be considered for removal or rewording alongside the other item reduction criteria. Additionally, we may consider keeping items with high skew or kurtosis for comparison or reporting purposes but flag them for removal from factor analysis.
 
 ```{r}
-skew_threshold <- 1.5
+dist_threshold <- 1.5
 
-skew_data <- items_data %>%
+dist_data <- items_data %>%
   summarise(
-    across(all_of(cols_tpsai), ~ psych::skew(.x,    na.rm = TRUE), .names = "{.col}_skew")
+    across(all_of(everything()), list(
+        skew = ~ psych::skew(.x,    na.rm = TRUE),
+        kurt = ~ psych::kurtosi(.x, na.rm = TRUE)
+      ), .names = "{.col}_{.fn}")
   ) %>%
   pivot_longer(
     everything(),
     names_to  = c("item", ".value"),
     names_sep = "_(?=[^_]+$)"
   ) %>%
-  separate(item, c("factor", "q_n"), sep = "_", remove = FALSE)
+  separate(item, c("subscale", "q_n"), sep = "_", remove = FALSE)
 
-ggplot(skew_data, aes(x = skew, fill = factor)) +
-  geom_histogram(binwidth = 0.1) +
-  geom_vline(xintercept = skew_threshold) + geom_vline(xintercept = -skew_threshold)
+# adding another threshold at 1.25 from visual inspection
+v_dist_threshold <- 1.25
+
+ggplot(dist_data, aes(x = skew, y = kurt, colour = subscale, label = item)) +
+  geom_point() +
+  geom_hline(yintercept=c(-dist_threshold, dist_threshold)) +
+  geom_vline(xintercept=c(-dist_threshold, dist_threshold)) +
+  geom_hline(yintercept=c(-v_dist_threshold, v_dist_threshold),linetype="dashed",color='red') +
+  geom_vline(xintercept=c(-v_dist_threshold, v_dist_threshold),linetype="dashed",color='red') +
+  labs(x = "Skewness", y = "Kurtosis")
 ```
 
 ```{r}
-skew_items <- skew_data %>%
-  filter(abs(skew) > skew_threshold) %>%  # add in other criteria from visual inspection
-  select(factor, item, skew) %>% 
-  arrange(desc(skew))
+dist_items <- dist_data %>%
+  filter(abs(skew) > v_dist_threshold | abs(kurt) > v_dist_threshold) %>% 
+  select(item, skew, kurt)
 
-if (nrow(skew_items) > 0) {
-  skew_items %>% knitr::kable(digits = 2)
+if (nrow(dist_items) > 0) {
+  dist_items  %>% knitr::kable(digits = 2)
 }
 ```
 
@@ -111,21 +129,27 @@ if (nrow(skew_items) > 0) {
 
 Beyond flagging items with high skew, we can also visually inspect the distribution of each item, looking for items where people consistently avoid using certain points in the scale such as items with responses clustered at the top and end of the scale (Bimodal distribution) or items where some scale points are consistently not used. These items might need to be reworded or removed depending on their distributional shape.
 
-```{r}
+```{r, warning=FALSE}
 #| fig-height: 2.5
 #| fig-width: 10
 long_data <- items_data %>%
   pivot_longer(everything(), names_to = "item", values_to = "response") %>%
   mutate(factor = sub("_.*", "", item))
 
-y_max <- long_data %>% count(item, response) %>% pull(n) %>% max()
+y_max <- long_data %>% 
+  count(item, response) %>% 
+  group_by(item) %>% 
+  mutate(prop = n / sum(n)) %>% 
+  pull(prop) %>% 
+  max()
 
 for (f in unique(long_data$factor)) {
   p <- long_data %>%
     filter(factor == f) %>%
-    ggplot(aes(x = factor(response))) +
+    ggplot(aes(x = factor(response), y = after_stat(prop), group = 1)) +
     geom_bar(fill = "#D85A30") +
     scale_x_discrete(limits = as.character(1:7)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
     coord_cartesian(ylim = c(0, y_max)) +
     facet_wrap(~ item, nrow = 1) +
     labs(x = "", y = "") +
@@ -134,6 +158,7 @@ for (f in unique(long_data$factor)) {
   print(p)
 }
 ```
+
 # Item Statistics
 
 To complement the diagnostic checks above, we compile a single table of descriptive statistics for all items. This provides an at-a-glance reference showing sample size, central tendency, dispersion, and distributional shape for each item, alongside the missingness and skewness values used in our screening decisions.
@@ -142,11 +167,9 @@ To complement the diagnostic checks above, we compile a single table of descript
 item_stats <- items_data %>%
   select(all_of(cols_tpsai)) %>%
   pivot_longer(everything(), names_to = "item", values_to = "response") %>%
-  separate(item, c("factor", "q_n"), sep = "_", remove = FALSE) %>%
-  group_by(factor, item) %>%
+  group_by(item) %>%
   summarise(
     n        = sum(!is.na(response)),
-    missing  = mean(is.na(response)),
     mean     = mean(response, na.rm = TRUE),
     sd       = sd(response, na.rm = TRUE),
     median   = median(response, na.rm = TRUE),
@@ -156,13 +179,21 @@ item_stats <- items_data %>%
     kurtosis = psych::kurtosi(response, na.rm = TRUE),
     .groups  = "drop"
   ) %>%
-  arrange(factor, item)
+  arrange(item)
 
 item_stats %>%
   knitr::kable(
     digits = 2,
-    col.names = c("Factor", "Item", "N", "Missing", "Mean", "SD",
+    col.names = c("Item", "N", "Mean", "SD",
                   "Median", "Min", "Max", "Skew", "Kurtosis"),
-    caption = "Descriptive statistics for all items."
   )
+```
+
+# Survey Duration
+
+```{r, warning=FALSE}
+ggplot(d$raw_data, aes(x = `Duration (in seconds)`)) +
+  geom_histogram(bins = 50) +
+  xlim(NA, quantile(d$raw_data$`Duration (in seconds)`, 0.95, na.rm = TRUE)) +
+  geom_vline(xintercept = 600)
 ```

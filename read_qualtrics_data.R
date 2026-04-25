@@ -1,6 +1,5 @@
-load_data <- function(file_path, factors_path, version = c("v1", "v2")) {
-  version <- match.arg(version)
-  
+load_data <- function(file_path, factors_path) {
+
   raw_data  <- read_csv(file_path, n_max = 2)
   colnames  <- names(raw_data)
   q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
@@ -9,16 +8,7 @@ load_data <- function(file_path, factors_path, version = c("v1", "v2")) {
   factors_map <- read_csv(factors_path)
   item_ids <- factors_map$IID
   
-  survey_cols <- switch(
-    version,
-    # v1: two choice matrices, odd IIDs in OD_*, even IIDs in EV_*,
-    #     displayed at random within each matrix. Interleave so the
-    #     ordering is COMP_01, COMP_03, ... i.e. matches factors_map$IID.
-    v1 = c(rbind(paste0("OD_", 1:20), paste0("EV_", 1:20))),
-    # v2: items displayed orderly as TPSAI_1 ... TPSAI_40,
-    #     one-to-one with factors_map$IID in file order.
-    v2 = sprintf("TPSAI_%d", seq_along(item_ids))
-  )
+  survey_cols <- sprintf("TPSAI_%d", seq_along(item_ids))
   
   q_text_items <- q_text[survey_cols]
   names(q_text_items) <- item_ids
