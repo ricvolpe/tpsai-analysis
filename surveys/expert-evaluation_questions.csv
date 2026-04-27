@@ -1,0 +1,41 @@
+IID,No.,Item
+COMP_01,1,I trust the AI to provide me information that helps me manage my psychological challenges
+COMP_02,2,I trust the AI to help me clarify my thoughts about a difficult situation
+COMP_03,3,I trust that what the AI tells me about psychological matters is accurate and reliable
+COMP_04,4,I can rely on the AI to understand the perspective of someone I am having difficulties with
+COMP_05,5,Using the AI enables me to see how my experiences fit into what is common for others
+PERS_01,6,I trust the AI to easily recognise what I want to know
+PERS_02,7,I trust the AI to give me advice that is well-tailored to my specific situation
+PERS_03,8,"I trust that the more information the AI has about me, the better it can support me"
+PERS_04,9,I trust the AI to help me gain new insights into my issues
+PERS_05,10,I trust the AI to remind me of things that could help me feel better when I cannot think of them
+EMOT_01,11,I trust the AI to reflect the feelings I share in a way that feels accurate
+EMOT_02,12,I trust the AI to make me feel heard and validated
+EMOT_03,13,I trust the AI to help me shift from negative to positive emotions
+EMOT_04,14,I trust the AI to help me feel more confident in my ability to handle a difficult situation
+EMOT_05,15,I trust the AI to adjust its responses appropriately as my emotions change during our conversation
+SAFE_01,16,I feel comfortable sharing my private and sensitive information with the AI
+SAFE_02,17,I feel safe opening up to the AI about anything that is on my mind
+SAFE_03,18,I trust that the AI responses are free from harmful social stereotypes
+SAFE_04,19,I trust the AI to provide me with a space where I can express myself freely
+SAFE_05,20,I trust the AI to respond to me in ways that respect who I am
+RISK_01,21,I am concerned that the AI may not be able to appropriately respond to mental health crises
+RISK_02,22,Using the AI as my primary source of psychological support would be risky
+RISK_03,23,I am concerned that the AI does not sufficiently highlight its limitations as a mental health tool
+RISK_04,24,I doubt that the AI can provide sufficient support for complex mental health conditions
+RISK_05,25,I believe the AI may provide inaccurate or misleading mental health information
+CORP_01,26,I am concerned that the AI company may use my data in ways I do not approve of
+CORP_02,27,I trust the AI company less because they aren't doing enough to mitigate the AI's environmental impact
+CORP_03,28,I am skeptical that the AI company ensures the AI is safe to use for mental health support
+CORP_04,29,I am concerned that the values of the AI company do not sufficiently align with my own
+CORP_05,30,I am concerned that the AI company treats my wellbeing as secondary to their commercial interests
+CRIT_01,31,I am concerned that the way the AI expresses itself might lead me to trust it more than I should
+CRIT_02,32,It is up to me to guide the AI to give responses that meet my needs
+CRIT_03,33,I trust AI responses less as conversations get longer and the AI starts to 'drift'
+CRIT_04,34,"When in doubt, I would trust my own experience over what the AI tells me"
+CRIT_05,35,I feel the need to verify the AI's sources when the information is important
+HUMN_01,36,The AI cannot replace human connections for emotional support
+HUMN_02,37,"Even though the AI sounds human, our interactions lack the shared experience of human connections"
+HUMN_03,38,The emotional support the AI can offer is limited by its lack of embodied feelings and shared presence
+HUMN_04,39,"While the AI uses empathic language, it cannot care about my wellbeing as a good friend would"
+HUMN_05,40,"Even though I can talk with the AI about my feelings, it does not experience emotions the way I do"
