@@ -70,7 +70,7 @@ item_stats %>%
   )
 ```
 
-# High missingness
+# Missingness
 
 Items where many people respond `Don't know` likely capture constructs that participants are uncertain about and can reduce the effective sample size and item statistics like means and correlations. We decided to drop items exceeding 30% missing responses. Our rationale is that if at least 3 out of 10 individuals were not able to meaningfully engage with an item, dropping it simplifies our scale and allows it to focus on measuring items with generally clearer responses.
 

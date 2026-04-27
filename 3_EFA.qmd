@@ -53,7 +53,7 @@ efa_data$COR_05 <- 8 - efa_data$COR_05
 #| include: false
 # OPTION 3: using actual pilot data without simulating
 source("scripts/read_qualtrics_data.R")
-d <-load_data("data/TPSai+-+Pilot+Tester_25+April+2026_12.53.csv", "data/factors_v1.1.csv")
+d <-load_data("data/TPSai+-+Pilot+Tester_27+April+2026_13.02.csv", "data/factors_v1.1.csv")
 efa_data <- d$items_data
 efa_data[is.na(efa_data)] <- 4
 cols_tpsai <- d$item_ids
@@ -379,7 +379,7 @@ imap_dfr(factors, function(focal_cols, focal_name) {
 Lastly, we examine pairwise inter-item correlations. Items correlating above .7 suggest they may be measuring the same underlying concept. Where such pairs are identified, we consider whether the affected items should be merged, reassigned to a different factor, or removed.
 
 ```{r}
-ii_cor_threshold <- 0.7
+ii_cor_threshold <- 0.75
 
 efa_data %>%
   select(all_of(cols_tpsai)) %>%
