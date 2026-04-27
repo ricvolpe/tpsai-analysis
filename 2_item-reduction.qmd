@@ -27,7 +27,47 @@ source("scripts/read_qualtrics_data.R")
 d <- load_data("data/TPSai+-+Pilot+Tester_27+April+2026_13.02.csv", "data/factors_v1.1.csv")
 items_data <- d$items_data
 cols_tpsai <- d$item_ids
-nrow(items_data)
+```
+
+# Items
+
+## Questions
+
+```{r}
+d$factors_map %>% 
+  select(IID, Item) %>% 
+  kable()
+
+```
+
+## Statistics
+
+Total number of responses is `{r} nrow(items_data)`
+
+```{r}
+item_stats <- items_data %>%
+  select(all_of(cols_tpsai)) %>%
+  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
+  group_by(item) %>%
+  summarise(
+    n        = sum(!is.na(response)),
+    mean     = mean(response, na.rm = TRUE),
+    sd       = sd(response, na.rm = TRUE),
+    median   = median(response, na.rm = TRUE),
+    min      = suppressWarnings(min(response, na.rm = TRUE)),
+    max      = suppressWarnings(max(response, na.rm = TRUE)),
+    skew     = psych::skew(response, na.rm = TRUE),
+    kurtosis = psych::kurtosi(response, na.rm = TRUE),
+    .groups  = "drop"
+  ) %>%
+  arrange(item)
+
+item_stats %>%
+  knitr::kable(
+    digits = 2,
+    col.names = c("Item", "N", "Mean", "SD",
+                  "Median", "Min", "Max", "Skew", "Kurtosis"),
+  )
 ```
 
 # High missingness
@@ -50,8 +90,8 @@ missing_data <- items_data %>%
   ) %>%
   separate(item, c("factor", "q_n"), sep = "_", remove = FALSE)
 
-# adding another threshold at 0.1 from visual inspection
-v_missing_threshold <- 0.1
+# adding another threshold from visual inspection
+v_missing_threshold <- 0.05
 
 ggplot(missing_data, aes(x = missing, fill = factor)) +
   geom_histogram(binwidth = 0.0075) +
@@ -59,7 +99,7 @@ ggplot(missing_data, aes(x = missing, fill = factor)) +
   geom_vline(xintercept = v_missing_threshold, linetype="dashed",color='red')
 ```
 
-5% threshold means more than `{r} nrow(items_data) * 0.05` missing responses out of `{r} nrow(items_data)`.
+Visual threshold selects items with at least `{r} nrow(items_data) * v_missing_threshold` missing responses out of `{r} nrow(items_data)`.
 
 ```{r}
 missing_items <- missing_data %>%
@@ -159,37 +199,9 @@ for (f in unique(long_data$factor)) {
 }
 ```
 
-# Item Statistics
-
-To complement the diagnostic checks above, we compile a single table of descriptive statistics for all items. This provides an at-a-glance reference showing sample size, central tendency, dispersion, and distributional shape for each item, alongside the missingness and skewness values used in our screening decisions.
-
-```{r}
-item_stats <- items_data %>%
-  select(all_of(cols_tpsai)) %>%
-  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
-  group_by(item) %>%
-  summarise(
-    n        = sum(!is.na(response)),
-    mean     = mean(response, na.rm = TRUE),
-    sd       = sd(response, na.rm = TRUE),
-    median   = median(response, na.rm = TRUE),
-    min      = suppressWarnings(min(response, na.rm = TRUE)),
-    max      = suppressWarnings(max(response, na.rm = TRUE)),
-    skew     = psych::skew(response, na.rm = TRUE),
-    kurtosis = psych::kurtosi(response, na.rm = TRUE),
-    .groups  = "drop"
-  ) %>%
-  arrange(item)
-
-item_stats %>%
-  knitr::kable(
-    digits = 2,
-    col.names = c("Item", "N", "Mean", "SD",
-                  "Median", "Min", "Max", "Skew", "Kurtosis"),
-  )
-```
-
 # Survey Duration
+
+Displaying survey duration for pilot test responses in order to decided how much to grant for future data collection.
 
 ```{r, warning=FALSE}
 ggplot(d$raw_data, aes(x = `Duration (in seconds)`)) +
