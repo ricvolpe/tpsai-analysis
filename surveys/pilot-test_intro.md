@@ -16,7 +16,7 @@
 
 -   Never
 
-**PLAT-PSY:** Which generative AI platform have you been using most frequently for psychological support or advice? Please [select only one]{.underline} (*If they answered 'Never' to the previous question the wording would be: \
+**PLAT-PSY:** Which generative AI platform have you been using most frequently for psychological support or advice? Please [select only one]{.underline} (*If they answered 'Never' to the previous question the wording would be:\
 "*Besides psychological support, which generative AI platform have you been using most frequently or are you most familiar with?")
 
 -   ChatGPT
@@ -37,27 +37,7 @@
 
 -   Other
 
-**TR:** Thinking about [selected platform], how much do you trust it for psychological or emotional support?
-
--   Required
-
--   Not at all
-
--   Very little
-
--   A little
-
--   Moderately
-
--   Quite a bit
-
--   Very much
-
--   Completely
-
-**DT:** Thinking about [selected platform], how much do you distrust it for psychological or emotional support?
-
--   Required
+**TR/DT:** Thinking about [selected platform], how much do you trust/distrust it for psychological or emotional support?
 
 -   Not at all
 
@@ -75,8 +55,7 @@
 
 # Questionnaire
 
-**Introduction:** In the following questions we refer to [selected platform] as "the AI" and the
-company that owns it as "the AI company". If you haven't used the AI in the way a question describes, please answer based on how you imagine you would feel about it.
+**Introduction:** In the following questions we refer to [selected platform] as "the AI" and the company that owns it as "the AI company". If you haven't used the AI in the way a question describes, please answer based on how you imagine you would feel about it.
 
 *TPSai questions were displayed as a Matrix table with the following answer options:*
 
