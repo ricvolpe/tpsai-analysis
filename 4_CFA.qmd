@@ -26,7 +26,7 @@ set.seed(seed) # makes sure random numbers are reproducible
 ```{r}
 options(readr.show_col_types = FALSE)
 
-source("simulate_data.R")
+source("scripts/simulate_data.R")
 
 cfa_data <- simulate_data(
   sample_path = "data/pilot/TPSai_29+March+2026_15.56.csv", 

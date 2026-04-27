@@ -25,7 +25,7 @@ set.seed(seed) # makes sure random numbers are reproducible
 
 ```{r}
 # OPTION 1: Simulate data
-source("simulate_data.R")
+source("scripts/simulate_data.R")
 
 efa_data <- simulate_data(
   sample_path = "data/TPSai+-+Pilot+Tester_27+April+2026_13.02.csv", 
@@ -52,7 +52,7 @@ efa_data$COR_05 <- 8 - efa_data$COR_05
 #| eval: false
 #| include: false
 # OPTION 3: using actual pilot data without simulating
-source("read_qualtrics_data.R")
+source("scripts/read_qualtrics_data.R")
 d <-load_data("data/TPSai+-+Pilot+Tester_25+April+2026_12.53.csv", "data/factors_v1.1.csv")
 efa_data <- d$items_data
 efa_data[is.na(efa_data)] <- 4

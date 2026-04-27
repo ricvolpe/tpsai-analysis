@@ -23,7 +23,7 @@ set.seed(8675309) # makes sure random numbers are reproducible
 ```
 
 ```{r}
-source("read_qualtrics_data.R")
+source("scripts/read_qualtrics_data.R")
 d <- load_data("data/TPSai+-+Pilot+Tester_27+April+2026_13.02.csv", "data/factors_v1.1.csv")
 items_data <- d$items_data
 cols_tpsai <- d$item_ids
