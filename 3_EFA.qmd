@@ -57,6 +57,18 @@ d <-load_data("data/TPSai+-+Pilot+Tester_27+April+2026_13.02.csv", "data/factors
 efa_data <- d$items_data
 efa_data[is.na(efa_data)] <- 4
 cols_tpsai <- d$item_ids
+
+# exploring effect of item reduction
+cols_tpsai <- c(
+  "COMP_01", "COMP_02", "COMP_03", "COMP_04", "COMP_05",
+  "PERS_01", "PERS_02", "PERS_03", "PERS_04", "PERS_05",
+  "EMOT_01", "EMOT_02", "EMOT_03", "EMOT_04", "EMOT_05",
+  "SAFE_02", "SAFE_03", "SAFE_04", "SAFE_05",
+  "RISK_01", "RISK_03", "RISK_05",
+  "CORP_01", "CORP_03", "CORP_04", "CORP_05",
+  "CRIT_01", "CRIT_03",
+  "HUMN_01", "HUMN_02", "HUMN_03", "HUMN_04", "HUMN_05"
+)
 ```
 
 # Exploratory Factor Analysis
@@ -379,7 +391,7 @@ imap_dfr(factors, function(focal_cols, focal_name) {
 Lastly, we examine pairwise inter-item correlations. Items correlating above .7 suggest they may be measuring the same underlying concept. Where such pairs are identified, we consider whether the affected items should be merged, reassigned to a different factor, or removed.
 
 ```{r}
-ii_cor_threshold <- 0.75
+ii_cor_threshold <- 0.8
 
 efa_data %>%
   select(all_of(cols_tpsai)) %>%
@@ -389,7 +401,7 @@ efa_data %>%
   pivot_longer(-item1, names_to = "item2", values_to = "r") %>%
   filter(r > -1 & r < 1) %>%
   filter(item1 < item2) %>% 
-  filter(sub("_.*", "", item1) != sub("_.*", "", item2)) %>% # within-factor filter
+  # filter(sub("_.*", "", item1) != sub("_.*", "", item2)) %>% # within-factor filter
   filter(abs(r) > ii_cor_threshold) %>%
   knitr::kable(digits = 2)
 ```
