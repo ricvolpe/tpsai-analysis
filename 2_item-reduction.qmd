@@ -204,8 +204,13 @@ for (f in unique(long_data$factor)) {
 Displaying survey duration for pilot test responses in order to decided how much to grant for future data collection.
 
 ```{r, warning=FALSE}
+p80 <- quantile(d$raw_data$`Duration (in seconds)`, 0.80, na.rm = TRUE)
+p95 <- quantile(d$raw_data$`Duration (in seconds)`, 0.95, na.rm = TRUE)
+
 ggplot(d$raw_data, aes(x = `Duration (in seconds)`)) +
   geom_histogram(bins = 50) +
-  xlim(NA, quantile(d$raw_data$`Duration (in seconds)`, 0.95, na.rm = TRUE)) +
-  geom_vline(xintercept = 600)
+  xlim(NA, p95) +
+  geom_vline(xintercept = p80, linetype = "dashed", color = "red")
 ```
+
+80% of respondents completed the survey within `{r} p80` seconds, a figure that we will use for compensating future survey responses, discounted by the number of items that we will remove going into those iterations.

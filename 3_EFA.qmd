@@ -53,22 +53,10 @@ efa_data$COR_05 <- 8 - efa_data$COR_05
 #| include: false
 # OPTION 3: using actual pilot data without simulating
 source("scripts/read_qualtrics_data.R")
-d <-load_data("data/TPSai+-+Pilot+Tester_27+April+2026_13.02.csv", "data/factors_v1.1.csv")
+d <-load_data("data/TPSai+-+Pilot+Tester.csv", "data/factors_v1.1.csv")
 efa_data <- d$items_data
 efa_data[is.na(efa_data)] <- 4
 cols_tpsai <- d$item_ids
-
-# exploring effect of item reduction
-cols_tpsai <- c(
-  "COMP_01", "COMP_02", "COMP_03", "COMP_04", "COMP_05",
-  "PERS_01", "PERS_02", "PERS_03", "PERS_04", "PERS_05",
-  "EMOT_01", "EMOT_02", "EMOT_03", "EMOT_04", "EMOT_05",
-  "SAFE_02", "SAFE_03", "SAFE_04", "SAFE_05",
-  "RISK_01", "RISK_03", "RISK_05",
-  "CORP_01", "CORP_03", "CORP_04", "CORP_05",
-  "CRIT_01", "CRIT_03",
-  "HUMN_01", "HUMN_02", "HUMN_03", "HUMN_04", "HUMN_05"
-)
 ```
 
 # Exploratory Factor Analysis

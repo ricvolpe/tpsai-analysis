@@ -1,4 +1,4 @@
-# Pilot Test Suvey
+# Pilot Test Survey
 
 *This markdown file shows the structure of the survey that people completed during the pilot test.*
 
