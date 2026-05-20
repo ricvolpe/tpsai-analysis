@@ -1,0 +1,499 @@
+---
+title: "Explore Pilot Data"
+author: "Riccardo Volpato"
+format:
+  html:
+    embed-resources: true
+    toc: true
+editor: visual
+bibliography: references.bib
+execute:
+  message: false
+  warning: false
+---
+
+This document examines whether the reduced 30-item TPSAI scale shows construct validity in the pilot sample, and asks whether item-level responses reveal distinguishable user types beyond what behavioural (usage frequency) or global self-report measures capture on their own.
+
+# Set-up
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(patchwork)
+library(knitr)
+
+set.seed(8675309)
+```
+
+**Load data**
+
+```{r}
+file_path <- "data/TPSai+-+Pilot.csv"
+raw_data  <- read_csv(file_path, n_max = 2)
+colnames  <- names(raw_data)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
+```
+
+**Response-scale coding**
+
+```{r}
+likert_levels <- c(
+  "Strongly disagree"          = 1,
+  "Disagree"                   = 2,
+  "Somewhat disagree"          = 3,
+  "Neither agree nor disagree" = 4,
+  "Somewhat agree"             = 5,
+  "Agree"                      = 6,
+  "Strongly agree"             = 7,
+  "Don't know"                 = NA
+)
+
+overall_levels <- c(
+  "Not at all"  = 1, "Very little" = 2, "A little"    = 3,
+  "Moderately"  = 4, "Quite a bit" = 5, "Very much"   = 6,
+  "Completely"  = 7
+)
+
+freq_groups <- c(
+  "Never"                                    = "Never",
+  "About once a month"                       = "Rarely",
+  "About once a week to a few times a month" = "Rarely",
+  "Several times a week"                     = "Often",
+  "Daily or multiple times a day"            = "Often"
+)
+
+freq_levels <- c(
+  "Never"                                    = 1,
+  "About once a month"                       = 2,
+  "About once a week to a few times a month" = 3,
+  "Several times a week"                     = 4,
+  "Daily or multiple times a day"            = 5
+)
+
+tr_dt_groups <- function(x) {
+  cut(x, breaks = c(0, 3, 4, 7),
+      labels = c("Low", "Medium", "High"),
+      include.lowest = TRUE)
+}
+```
+
+**Short labels**
+
+```{r}
+freq_labels_short <- c(
+  "Never"                                    = "Never",
+  "About once a month"                       = "Monthly",
+  "About once a week to a few times a month" = "Weekly",
+  "Several times a week"                     = "Most days",
+  "Daily or multiple times a day"            = "Daily"
+)
+
+likert_short <- c(
+  "Strongly disagree"          = "Strong disagree",
+  "Disagree"                   = "Disagree",
+  "Somewhat disagree"          = "Some disagree",
+  "Neither agree nor disagree" = "Neutral",
+  "Somewhat agree"             = "Some agree",
+  "Agree"                      = "Agree",
+  "Strongly agree"             = "Strong agree"
+)
+
+overall_short <- c(
+  "Not at all"  = "Not at all",
+  "Very little" = "Very little",
+  "A little"    = "A little",
+  "Moderately"  = "Moderate",
+  "Quite a bit" = "Quite a bit",
+  "Very much"   = "Very much",
+  "Completely"  = "Completely"
+)
+
+f8_short <- c(
+  "Psychological Competence" = "COMP",
+  "Personalisation"          = "PERS",
+  "Artificial Empathy"       = "EMPA",
+  "Psychological Safety"     = "SAFE",
+  "Risk Perception"          = "RISK",
+  "Corporate Distrust"       = "CORP",
+  "Sentience Attribution"    = "SENT"
+)
+```
+
+**Items and factor map**
+
+```{r}
+# Item reduction (see 2a_item_reduction.qmd)
+items_to_drop <- c(
+  "PERS_04", "PERS_05",            # high inter-item correlation
+  "EMPA_05",                       # missingness + low item-factor correlation
+  "SAFE_01",                       # high kurtosis
+  "RISK_02", "RISK_04",            # high skew
+  "CRIT_02", "CRIT_04", "CRIT_05"  # high skew + low item-factor correlation
+)
+
+# IMPORTANT: rename raw columns using the FULL factor map (all 39 items
+# in survey order), then drop unwanted items by name. Renaming against
+# the filtered map would mis-align column positions.
+factors_map_full <- read_csv('surveys/pilot-test_qs.csv') |>
+  mutate(
+    `8F` = case_when(
+      IID == "CRIT_01" ~ "Sentience Attribution",
+      IID == "CRIT_03" ~ "Risk Perception",
+      TRUE ~ `8F`
+    ),
+    IID = case_when(
+      IID == "CRIT_01" ~ "SENT_06",
+      IID == "CRIT_03" ~ "RISK_06",
+      TRUE ~ IID
+    )
+  )
+
+factors_map      <- factors_map_full |> filter(!IID %in% items_to_drop)
+cols_tpsai_full  <- factors_map_full$IID
+survey_cols_full <- sprintf("TPSAI_%d", seq_along(cols_tpsai_full))
+cols_tpsai       <- factors_map$IID
+f8_levels        <- unique(factors_map$`8F`)
+```
+
+**Long-format data with grouping variables**
+
+```{r}
+items_long <- raw_data |>
+  mutate(ResponseId = row_number(),
+         FREQ_group = factor(freq_groups[FREQ],
+                             levels = c("Never", "Rarely", "Often")),
+         TR_group   = tr_dt_groups(overall_levels[TR]),
+         DT_group   = tr_dt_groups(overall_levels[DT])) |>
+  rename_with(~ cols_tpsai_full, all_of(survey_cols_full)) |>
+  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x])) |>
+  select(ResponseId, FREQ_group, TR_group, DT_group, all_of(cols_tpsai)) |>
+  pivot_longer(-c(ResponseId, FREQ_group, TR_group, DT_group),
+               names_to = "IID", values_to = "score") |>
+  left_join(factors_map, by = "IID")
+```
+
+**Plotting helpers**
+
+```{r}
+plot_item_heatmap <- function(data, group_var, x_label = NULL) {
+  data |>
+    filter(!is.na({{ group_var }}), !is.na(score)) |>
+    group_by(IID, {{ group_var }}) |>
+    summarise(mean = mean(score), .groups = "drop") |>
+    mutate(IID = factor(IID, levels = rev(factors_map$IID))) |>
+    ggplot(aes(x = {{ group_var }}, y = IID, fill = mean)) +
+    geom_tile(color = "white", linewidth = 0.5) +
+    geom_text(aes(label = sprintf("%.1f", mean),
+                  color = abs(mean - 4) > 2), size = 3.2) +
+    scale_fill_gradient2(low = "#b2182b", mid = "white", high = "#2166ac",
+                         midpoint = 4, limits = c(1, 7), name = "Mean") +
+    scale_color_manual(values = c("black", "white"), guide = "none") +
+    coord_fixed(ratio = 0.5) +
+    labs(x = x_label, y = NULL) +
+    theme_minimal(base_size = 11) +
+    theme(panel.grid = element_blank(),
+          axis.text.y = element_text(size = 9))
+}
+
+plot_2f_lines <- function(data, group_var, x_label = NULL) {
+  data |>
+    filter(!is.na({{ group_var }}), !is.na(score)) |>
+    group_by(ResponseId, `2F`, {{ group_var }}) |>
+    summarise(person_score = mean(score), .groups = "drop") |>
+    group_by(`2F`, {{ group_var }}) |>
+    summarise(mean = mean(person_score),
+              se   = sd(person_score) / sqrt(n()),
+              .groups = "drop") |>
+    ggplot(aes(x = {{ group_var }}, y = mean,
+               group = `2F`, color = `2F`)) +
+    geom_ribbon(aes(ymin = mean - se, ymax = mean + se, fill = `2F`),
+                alpha = 0.15, color = NA) +
+    geom_line() +
+    geom_point(size = 2) +
+    labs(x = x_label, y = "Mean score") +
+    theme_minimal()
+}
+```
+
+# Construct validity
+
+The scale's 2-factor structure (Trust / Distrust) is supported across three criterion measures
+
+1.  Frequency of generative AI for psychological support
+
+2.  Single-item global Trust (TR) for psychological support
+
+3.  single-item global Distrust (DT) for psychological support
+
+Trust and Distrust subscales move in opposite directions with comparable magnitudes against all three, indicating both convergent and discriminant validity.
+
+**Item-level patterns**
+
+```{r, fig.width=10, fig.height=8}
+plot_item_heatmap(items_long, FREQ_group, "Frequency") +
+plot_item_heatmap(items_long, TR_group, "TR") + 
+  theme(axis.text.y = element_blank()) +
+plot_item_heatmap(items_long, DT_group, "DT") +
+  theme(axis.text.y = element_blank()) +
+plot_layout(ncol = 3, guides = "collect") &
+theme(legend.position = "right")
+```
+
+Trust items (COMP, PERS, EMPA, SAFE) shift red → blue from low to high on Frequency and TR, and blue → red on DT. Distrust items (RISK, CORP, CRIT, SENT) show the mirror pattern. The visual symmetry across panels indicates all eight subordinate factors move consistently with their assigned superordinate factor.
+
+**Subscale-level patterns**
+
+```{r, fig.width=8, fig.height=4}
+p1 <- plot_2f_lines(items_long, FREQ_group, "Frequency") +
+  theme_minimal()
+
+p2 <- plot_2f_lines(items_long, TR_group, "TR") +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(), axis.title.y = element_blank())
+
+p3 <- plot_2f_lines(items_long, DT_group, "DT") +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(), axis.title.y = element_blank())
+
+p1 + p2 + p3 + plot_layout(ncol = 3, guides = "collect") &
+  scale_y_continuous(limits = c(1, 7)) &
+  theme(legend.position = "top")
+```
+
+Aggregating items to the two superordinate factors makes the validity pattern explicit. Trust and Distrust subscales cross within each panel, with comparable magnitudes of change — supporting both convergent (subscales track their corresponding criterion) and discriminant (subscales move opposite their non-corresponding criterion) validity.
+
+**Frequency vs. global Trust / Distrust**
+
+```{r}
+overall_scores <- raw_data |>
+  mutate(FREQ_num = freq_levels[FREQ],
+         Trust    = overall_levels[TR],
+         Distrust = overall_levels[DT]) |>
+  select(FREQ_num, Trust, Distrust) |>
+  filter(!is.na(FREQ_num))
+```
+
+```{r, fig.width=9, fig.height=4}
+p_trust <- overall_scores |>
+  filter(!is.na(Trust)) |>
+  ggplot(aes(x = FREQ_num, y = Trust)) +
+  geom_jitter(width = 0.15, height = 0.15, alpha = 0.5, size = 2) +
+  geom_smooth(method = "lm", se = TRUE, color = "#2166ac") +
+  labs(x = "Frequency", y = "Trust")
+
+p_distrust <- overall_scores |>
+  filter(!is.na(Distrust)) |>
+  ggplot(aes(x = FREQ_num, y = Distrust)) +
+  geom_jitter(width = 0.15, height = 0.15, alpha = 0.5, size = 2) +
+  geom_smooth(method = "lm", se = TRUE, color = "#b2182b") +
+  labs(x = "Frequency", y = "Distrust")
+
+p_trust + p_distrust &
+  scale_x_continuous(breaks = 1:5,
+                     labels = c("Never", "Monthly", "Weekly",
+                                "Several/wk", "Daily")) &
+  scale_y_continuous(limits = c(1, 7), breaks = 1:7) &
+  theme_minimal(base_size = 11)
+```
+
+The three criterion measures are themselves correlated: more frequent AI use for psychological support is associated with higher global Trust and lower global Distrust (also for psychological support).
+
+# Clustering
+
+Construct validity establishes that the scale measures what it claims to measure at the *group* level. A complementary question is whether the 30 items reveal distinguishable *types* of respondents — patterns of trust and distrust that don't reduce to a single dimension. We address this by hierarchical clustering on the 30 items, then describing the resulting clusters by their behavioural and global self-report profiles.
+
+"Don't know" responses are imputed to the scale midpoint (4 = Neither agree nor disagree), treating them as ambivalence rather than borrowing from other respondents.
+
+```{r}
+items_wide <- items_long |>
+  select(ResponseId, IID, score) |>
+  mutate(score = replace_na(score, 4)) |>
+  pivot_wider(names_from = IID, values_from = score)
+
+X <- items_wide |> select(-ResponseId) |> as.matrix()
+rownames(X) <- items_wide$ResponseId
+
+d  <- dist(X, method = "euclidean")
+hc <- hclust(d, method = "ward.D2")
+
+cluster_assignments <- tibble(
+  ResponseId = items_wide$ResponseId,
+  k2 = cutree(hc, k = 2),
+  k3 = cutree(hc, k = 3),
+  k4 = cutree(hc, k = 4)
+)
+```
+
+```{r}
+plot(hc, labels = FALSE, hang = -1,
+     main = "Hierarchical clustering of respondents (Ward, Euclidean on 30 items)",
+     xlab = "", sub = "")
+```
+
+The dendrogram shows asymmetric structure: the top split (height ≈ 70) divides the sample cleanly, and the right half then subdivides at ≈ 40 while the left half stays internally homogeneous until much lower heights (height ≈ 25). This anticipates an asymmetric typology: monolithic rejection on one side, heterogeneous engagement on the other.
+
+## Cluster profiles
+
+```{r}
+# Relabel cluster_assignments by trust rank: cluster 1 = lowest trust,
+# cluster k = highest. Same psychological position gets the same number
+# (and colour) across all values of k.
+relabel_by_trust <- function(k_col) {
+  ranks <- items_long |>
+    filter(!is.na(score), `2F` == "Trust") |>
+    inner_join(cluster_assignments |> select(ResponseId, all_of(k_col)),
+               by = "ResponseId") |>
+    group_by(cluster_num = .data[[k_col]]) |>
+    summarise(trust_mean = mean(score, na.rm = TRUE), .groups = "drop") |>
+    arrange(trust_mean) |>
+    mutate(new_num = row_number()) |>
+    select(cluster_num, new_num)
+
+  cluster_assignments[[k_col]] <<- ranks$new_num[
+    match(cluster_assignments[[k_col]], ranks$cluster_num)
+  ]
+}
+
+walk(c("k2", "k3", "k4"), relabel_by_trust)
+```
+
+```{r}
+likert_labels <- names(likert_levels)[1:7]  # drops "Don't know"
+
+profiles <- raw_data |>
+  mutate(ResponseId  = row_number(),
+         FREQ_label  = FREQ,
+         TR_label    = TR,
+         DT_label    = DT,
+         FREQ_num    = freq_levels[FREQ],
+         TR_num      = overall_levels[TR],
+         DT_num      = overall_levels[DT]) |>
+  select(ResponseId, starts_with("FREQ"), starts_with("TR"),
+         starts_with("DT")) |>
+  inner_join(cluster_assignments, by = "ResponseId") |>
+  left_join(
+    items_long |>
+      filter(!is.na(score)) |>
+      group_by(ResponseId, `2F`) |>
+      summarise(score = mean(score), .groups = "drop") |>
+      pivot_wider(names_from = `2F`, values_from = score),
+    by = "ResponseId"
+  )
+
+summarise_k <- function(k) {
+  profiles |>
+    group_by(Cluster = .data[[k]]) |>
+    summarise(
+      N = n(),
+      Frequency = sprintf(
+        "%s (%.1f)",
+        freq_labels_short[names(freq_levels)[round(mean(FREQ_num, na.rm = TRUE))]],
+        mean(FREQ_num, na.rm = TRUE)
+      ),
+      `Trust Item` = sprintf(
+        "%s (%.1f)",
+        overall_short[names(overall_levels)[round(mean(TR_num, na.rm = TRUE))]],
+        mean(TR_num, na.rm = TRUE)
+      ),
+      `Trust Scale` = sprintf(
+        "%s (%.1f)",
+        likert_short[likert_labels[round(mean(Trust, na.rm = TRUE))]],
+        mean(Trust, na.rm = TRUE)
+      ),
+      `Distrust Item` = sprintf(
+        "%s (%.1f)",
+        overall_short[names(overall_levels)[round(mean(DT_num, na.rm = TRUE))]],
+        mean(DT_num, na.rm = TRUE)
+      ),
+      `Distrust Scale` = sprintf(
+        "%s (%.1f)",
+        likert_short[likert_labels[round(mean(Distrust, na.rm = TRUE))]],
+        mean(Distrust, na.rm = TRUE)
+      ),
+      .groups = "drop"
+    ) |>
+    arrange(Cluster)
+}
+```
+
+```{r}
+plot_cluster_profile <- function(k_col) {
+  plot_data <- items_long |>
+    filter(!is.na(score)) |>
+    inner_join(cluster_assignments |> select(ResponseId, all_of(k_col)),
+               by = "ResponseId") |>
+    rename(cluster = all_of(k_col)) |>
+    group_by(ResponseId, `8F`, cluster) |>
+    summarise(person_score = mean(score), .groups = "drop") |>
+    group_by(`8F`, cluster) |>
+    summarise(mean = mean(person_score),
+              se   = sd(person_score) / sqrt(n()),
+              .groups = "drop") |>
+    mutate(`8F`    = factor(f8_short[`8F`], levels = f8_short),
+         cluster = factor(cluster, levels = c("1", "2", "3", "4")))
+
+  present_clusters <- sort(unique(as.character(plot_data$cluster)))
+
+  ggplot(plot_data,
+         aes(x = `8F`, y = mean, color = cluster, group = cluster)) +
+    geom_ribbon(aes(ymin = mean - se, ymax = mean + se, fill = cluster),
+                alpha = 0.15, color = NA) +
+    geom_line() +
+    geom_point(size = 2) +
+    scale_color_brewer(palette = "RdYlBu", drop = FALSE,
+                       breaks = rev(present_clusters), direction = 1) +
+    scale_fill_brewer(palette = "RdYlBu", drop = FALSE,
+                      breaks = rev(present_clusters), direction = 1) +
+    scale_y_continuous(limits = c(1, 7)) +
+    labs(x = NULL, y = "Mean", color = "Cluster", fill = "Cluster") +
+    theme_minimal(base_size = 11) +
+    theme(legend.position = "right",
+          axis.title.y    = element_text(color = "grey40"),
+          legend.title    = element_text(color = "grey40"),
+          axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+}
+```
+
+### k = 2
+
+A primary split between engaged users with positive attitudes and disengaged users with negative attitudes — the expected first-order pattern.
+
+```{r}
+summarise_k("k2") |> kable(digits = 2)
+```
+
+```{r, fig.width=5, fig.height=4}
+plot_cluster_profile("k2")
+```
+
+### k = 3
+
+The disengaged group subdivides. Both sub-clusters share near-identical Distrust profiles but differ sharply on Trust: one is at floor on every trust factor (hard rejection), the other holds the same distrust concerns but is *neutral* rather than negative on trust (cautious openness). The distinction would not be visible from global TR/DT scores, where both groups look broadly anti-AI.
+
+```{r}
+summarise_k("k3") |> kable(digits = 2)
+```
+
+```{r, fig.width=5, fig.height=4}
+plot_cluster_profile("k3")
+```
+
+### k = 4
+
+The engaged group subdivides, producing the most substantive finding. Two clusters of regular AI users emerge with nearly identical usage frequency (FREQ ≈ 3.6) but distinct psychological profiles: one holds high trust *alongside* moderate-to-high distrust ("engaged but wary"), the other holds high trust with substantially lower distrust ("enthusiasts"). Usage behaviour alone does not separate them; only the item-level pattern does.
+
+```{r}
+summarise_k("k4") |> kable(digits = 2)
+```
+
+```{r, fig.width=5, fig.height=4}
+plot_cluster_profile("k4")
+```
+
+| Clst | Label | Profile |
+|-----|----------|---------------------------------------------------------|
+| ❤️ 1 | Hard Rejecters | Never use AI. Trust factors at floor (≈2 across Competence, Personalisation, Empathy, Safety), distrust factors at ceiling (≈6.5 across Risk Perception, Corporate Distrust, Sentience Attribution). Monolithic opposition on every dimension. |
+| 🧡 2 | Cautiously Open | Occasional use. Distrust factors as high as rejecters (≈ 6–6.5), but trust factors sit at the neutral midpoint (≈4.4) rather than at floor. They hold all the same concerns about AI without rejecting its potential value. |
+| 🩵 3 | Critically Engaged | Regular use. Elevated trust factors (≈5, with Psychological Competence) *and* elevated distrust factors (≈5, with Sentience Attribution highest). Trust without naivety — they use AI competently while retaining critical awareness. |
+| 💙 4 | Enthusiasts | Regular use. Trust factors high (≈6, peaking on Psychological Safety and Competence), distrust factors moderate (≈4.5, with Risk Perception lowest). Lower domain-specific risk concern than any other engaged group. |
+
+The typology forms a progression from rejection through caution to ambivalent engagement to enthusiasm. Two features are worth highlighting. First, the boundary between hard rejecters and cautious openness lies entirely on the *trust* side: both groups share near-identical distrust profiles, but the cautious group has not formed the negative trust judgements. Second, "engaged but wary" and "enthusiasts" are behaviourally indistinguishable (they use generative AI for psychological support at the same rate) but their relationship with it differs structurally on the distrust side, particularly Risk Perception and Sentience Attribution.
