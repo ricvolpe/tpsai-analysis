@@ -22,10 +22,11 @@ set.seed(8675309) # makes sure random numbers are reproducible
 ```
 
 ```{r}
-raw_data  <- read_csv("data/TPSai+-+Pilot+Tester.csv", n_max = 2)
+file_path <- "data/TPSai+-+Pilot.csv"
+raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
-raw_data  <- read_csv("data/TPSai+-+Pilot+Tester.csv", col_names = colnames, skip = 3)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
 ```
 
 # Survey
@@ -88,7 +89,7 @@ plot_data_div <- raw_data %>%
   ) %>%
   ungroup()
 
-ggplot(plot_data_div, aes(x = pct_signed, y = response, fill = measure)) +
+overalls_plot <- ggplot(plot_data_div, aes(x = pct_signed, y = response, fill = measure)) +
   geom_col(width = 0.7) +
   geom_vline(xintercept = 0, color = "grey40") +
   scale_x_continuous(
@@ -109,6 +110,15 @@ ggplot(plot_data_div, aes(x = pct_signed, y = response, fill = measure)) +
     axis.text.y.left   = element_text(color = "#d97706"),
     axis.text.y.right  = element_text(color = "#1f4e79")
   )
+
+overalls_plot
+```
+
+```{r}
+ggsave("../writing/pilot-overalls.pdf",
+       plot = overalls_plot,
+       width = 6, height = 4,
+       units = "in")
 ```
 
 # Items
