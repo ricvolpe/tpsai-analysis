@@ -2208,7 +2208,9 @@ vertical-align: -.125em;
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#data-processing" id="toc-data-processing" class="nav-link active" data-scroll-target="#data-processing">Data Processing</a></li>
+  <li><a href="#expert-survey-structure" id="toc-expert-survey-structure" class="nav-link active" data-scroll-target="#expert-survey-structure">Expert Survey Structure</a></li>
+  <li><a href="#factors-dimensions" id="toc-factors-dimensions" class="nav-link" data-scroll-target="#factors-dimensions">Factors / Dimensions</a></li>
+  <li><a href="#data-processing" id="toc-data-processing" class="nav-link" data-scroll-target="#data-processing">Data Processing</a></li>
   <li><a href="#expertise" id="toc-expertise" class="nav-link" data-scroll-target="#expertise">Expertise</a></li>
   <li><a href="#agreement" id="toc-agreement" class="nav-link" data-scroll-target="#agreement">Agreement</a></li>
   <li><a href="#evaluations" id="toc-evaluations" class="nav-link" data-scroll-target="#evaluations">Evaluations</a>
@@ -2246,6 +2248,45 @@ vertical-align: -.125em;
 </header>
 
 
+<section id="expert-survey-structure" class="level1">
+<h1>Expert Survey Structure</h1>
+<p>This is what experts read during their evaluation of questions.</p>
+<blockquote class="blockquote">
+<p>The purpose of our research is to develop and validate a scale to measures how much people trust generative AIs (like ChatGPT or Claude) for psychological support, such as discussing feelings, sharing worries, or seeking advice about relationships.</p>
+<p>As part of this process, we are conducting an expert content evaluation to assess whether the items in our scale are clear, relevant, and appropriate. Over the next few sections, you will see items from our scale grouped by the theoretical factor that we assigned to them.</p>
+<p>We conceptualise trust as defined in our conceptual review of this research topic (see <a href="https://doi.org/10.1016/j.chbah.2025.100195" class="uri">https://doi.org/10.1016/j.chbah.2025.100195</a>)andderive our theoretical factors by combining our conceptual categorisation of relevant literature (see <a href="https://www.sciencedirect.com/science/article/pii/S2949882125000799#fig1" class="uri">https://www.sciencedirect.com/science/article/pii/S2949882125000799#fig1</a>) with the themes from our qualitative study of people’s lived experiences of trusting emotional support from generative AI (see <a href="https://arxiv.org/pdf/2601.16656" class="uri">https://arxiv.org/pdf/2601.16656</a> - Figure 1).</p>
+<p>Across factors, for each item please indicate whether to:</p>
+<ul>
+<li><p><strong>Keep</strong> – retain the item as written</p></li>
+<li><p><strong>Drop</strong> – remove the item from the scale</p></li>
+<li><p><strong>Reword</strong> – revise the item wording (you will optionally be able to provide a suggested rewording</p></li>
+</ul>
+<p>Note that participants in our survey will not see the survey as you will. They will not see any of the factor groupings and will be asked to rate agreement with each item on a 7-point Likert scale (rather than suggesting whether to keep/drop/reword the item).</p>
+<p><strong>Question:</strong> Which areas best describe your expertise? Please select all that apply</p>
+<ul>
+<li><p>Human–AI interaction</p></li>
+<li><p>Digital mental health</p></li>
+<li><p>Psychotherapy or counselling psychology</p></li>
+<li><p>Affective computing</p></li>
+<li><p>Psychometrics / psychological scale development</p></li>
+<li><p>Philosophy / ethics of AI</p></li>
+</ul>
+</blockquote>
+</section>
+<section id="factors-dimensions" class="level1">
+<h1>Factors / Dimensions</h1>
+<p><em>Shown below are the explanations of factors that we provided experts with.</em></p>
+<ol type="1">
+<li><p><strong>Psychological Competence:</strong> Belief that the AI can provide accurate psychological information and help make sense of personal challenges (coded as <code>COMP</code>)</p></li>
+<li><p><strong>Personalisation:</strong> Belief that the AI can recognise individual needs, retain relevant information, and offer support that is tailored to one’s specific situation (coded as <code>PERS</code>)</p></li>
+<li><p><strong>Emotional Intelligence:</strong> Belief that the AI can accurately reflect emotions, make one feel heard, and help shift toward more positive emotional states (coded as <code>EMOT</code> and later renamed as <em>Artificial Emapthy</em> for reporting)</p></li>
+<li><p><strong>Psychological Safety:</strong> A sense that the AI provides a private, respectful, unbiased space in which to openly share private thoughts and feelings (coded as <code>SAFE</code>)</p></li>
+<li><p><strong>Risk Perception:</strong> Concern that the AI is ill-equipped to handle serious mental health needs and may provide inaccurate or harmful information (coded as <code>RISK</code>)</p></li>
+<li><p><strong>Corporate Distrust:</strong> Concern that the organisation behind the AI prioritises its own interests over users’ wellbeing, privacy, and values (coded as <code>CORP</code>)</p></li>
+<li><p><strong>Critical Engagement:</strong> The degree to which one maintains personal agency over AI use by questioning its responses, guiding interactions, and trusting one’s own judgment over the AI’s (coded as <code>CRIT</code>)</p></li>
+<li><p><strong>“Artificial Humanness”:</strong> Recognition that the AI communicates in human-like ways while differing from humans in its lack of embodied emotion and shared experience, and an adjustment of one’s expectations and reliance accordingly (coded as <code>HUMN</code> and later renamed as <em>Sentience Attribution</em> for reporting)</p></li>
+</ol>
+</section>
 <section id="data-processing" class="level1">
 <h1>Data Processing</h1>
 <div class="cell">
@@ -2257,7 +2298,7 @@ vertical-align: -.125em;
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>raw_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(file_path, <span class="at">col_names =</span> colnames, <span class="at">skip =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>factors_map <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">&#39;data/factors_v1.csv&#39;</span>)</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>factors_map <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">&#39;surveys/expert-evaluation_qs.csv&#39;</span>)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>cols_tpsai <span class="ot">&lt;-</span> factors_map<span class="sc">$</span>IID</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>choices <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;Keep&quot;</span> <span class="ot">=</span> <span class="dv">1</span>, <span class="st">&quot;Drop&quot;</span> <span class="ot">=</span> <span class="dv">2</span>, <span class="st">&quot;Reword&quot;</span> <span class="ot">=</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
