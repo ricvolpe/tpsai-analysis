@@ -16,33 +16,155 @@ execute:
 library(tidyverse)
 library(gtools)
 library(psych)
-library(faux)
 library(knitr)
 
 set.seed(8675309) # makes sure random numbers are reproducible
 ```
 
 ```{r}
-source("scripts/read_qualtrics_data.R")
-d <- load_data("data/TPSai+-+Pilot+Tester.csv", "data/factors_v1.1.csv")
-items_data <- d$items_data
-cols_tpsai <- d$item_ids
+raw_data  <- read_csv("data/TPSai+-+Pilot+Tester.csv", n_max = 2)
+colnames  <- names(raw_data)
+q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
+raw_data  <- read_csv("data/TPSai+-+Pilot+Tester.csv", col_names = colnames, skip = 3)
+```
+
+# Survey
+
+Respondents first completed several preliminary questions before responding to the TPSai items, these were:
+
+> **FREQ:** In the past few months, how often, if at all, did you use a generative AI platform (like ChatGPT or Claude) to chat about your personal experiences, emotions, or well-being? *Examples include conversations where you discussed feelings, sought advice about relationships, reflected on your mental and physical health, or talked about your day, even if the conversation started on a different topic.*
+>
+> [Answers]{.underline}: Daily or multiple times a day / Several times a week / About once a week to a few times a month / About once a month / Never
+>
+> **PLAT:** Which generative AI platform have you been using most frequently for psychological support or advice? Please [select only one]{.underline} (*If they answered 'Never' to the previous question the wording would be:"*Besides psychological support, which generative AI platform have you been using most frequently or are you most familiar with?")
+>
+> [Answers:]{.underline} ChatGPT / Claude / Google Gemini / Microsoft Copilot / Meta AI / DeepSeek / Character.AI / Replika / Other
+>
+> **TR/DT:** Thinking about \[selected platform\], how much do you trust/distrust it for psychological or emotional support?
+>
+> [Answers:]{.underline} Not at all / Very little / A little / Moderately / Quite a bit / Very much / Completely
+
+## Results
+
+**Number of responses**
+
+```{r}
+nrow(raw_data)
+```
+
+**Frequencies of use of generative AI for psychological support**
+
+```{r}
+freq_summary <- raw_data %>%
+  count(FREQ) %>%
+  mutate(pct = round(n / sum(n) * 100, 1)) %>%
+  arrange(desc(n))
+
+kable(freq_summary, col.names = c("Frequency", "N", "%"))
+```
+
+**Overall levels of trust and distrust**
+
+```{r}
+overall_levels <- c("Not at all", "Very little", "A little", "Moderately", 
+                    "Quite a bit", "Very much", "Completely")
+
+trust_recode <- setNames(overall_levels, rev(overall_levels))
+
+plot_data_div <- raw_data %>%
+  select(TR, DT) %>%
+  mutate(TR = unname(trust_recode[TR])) %>%
+  pivot_longer(cols = c(TR, DT), names_to = "measure", values_to = "response") %>%
+  mutate(
+    response = factor(response, levels = overall_levels),
+    measure  = factor(measure, levels = c("DT", "TR"),
+                      labels = c("Distrust", "Trust"))
+  ) %>%
+  count(measure, response, .drop = FALSE) %>%
+  group_by(measure) %>%
+  mutate(
+    pct = n / sum(n),
+    pct_signed = if_else(measure == "Distrust", -pct, pct)
+  ) %>%
+  ungroup()
+
+ggplot(plot_data_div, aes(x = pct_signed, y = response, fill = measure)) +
+  geom_col(width = 0.7) +
+  geom_vline(xintercept = 0, color = "grey40") +
+  scale_x_continuous(
+    labels = function(x) scales::percent(abs(x), accuracy = 1),
+    limits = c(-0.30, 0.30),
+    breaks = seq(-0.30, 0.30, 0.10)
+  ) +
+  scale_y_discrete(
+    limits = rev,
+    sec.axis = dup_axis(labels = overall_levels)
+  ) +
+  scale_fill_manual(values = c("Trust" = "#1f4e79", "Distrust" = "#d97706")) +
+  labs(x = NULL, y = NULL, fill = NULL) + 
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "top",
+    panel.grid.major.y = element_blank(),
+    axis.text.y.left   = element_text(color = "#d97706"),
+    axis.text.y.right  = element_text(color = "#1f4e79")
+  )
 ```
 
 # Items
 
-## Questions
+Respondents read the following when responding to the TPSai items
+
+> In the following questions we refer to \[selected platform\] as "the AI" and the company that owns it as "the AI company". If you haven't used the AI in the way a question describes, please answer based on how you imagine you would feel about it.
+
+TPSai questions were displayed as a Matrix table with the following answer options: Strongly disagree / Disagree / Somewhat disagree / Neither agree nor disagree / Somewhat agree / Agree / Strongly agree / *Don't know*
+
+For question wordings see [pilot-test_qs.csv](surveys/pilot-test_qs.csv)
 
 ```{r}
-d$factors_map %>% 
+factors_map <- read_csv('surveys/pilot-test_qs.csv')
+
+factors_map %>% 
   select(IID, Item) %>% 
   kable()
+```
 
+```{r}
+cols_tpsai <- factors_map$IID
+survey_cols <- sprintf("TPSAI_%d", seq_along(cols_tpsai))
+```
+
+```{r}
+# check that survey and factors correspond (should be empty dataframe)
+data.frame(
+  survey_col  = survey_cols,
+  survey_q    = unname(q_text[survey_cols]),
+  IID         = cols_tpsai,
+  factor_item = factors_map$Item[!is.na(factors_map$IID)]
+) %>%
+  mutate(match = survey_q == factor_item) %>% 
+  filter(!match)  %>% nrow() == 0
+```
+
+```{r}
+likert_levels <- c(
+  "Strongly disagree"          = 1,
+  "Disagree"                   = 2,
+  "Somewhat disagree"          = 3,
+  "Neither agree nor disagree" = 4,
+  "Somewhat agree"             = 5,
+  "Agree"                      = 6,
+  "Strongly agree"             = 7,
+  "Don't know"                 = NA
+)
+
+items_data <- raw_data |>
+  rename_with(~ cols_tpsai, all_of(survey_cols)) |>
+  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x])) |>
+  select(all_of(cols_tpsai))
 ```
 
 ## Statistics
-
-Total number of responses is `{r} nrow(items_data)`
 
 ```{r}
 item_stats <- items_data %>%
@@ -70,7 +192,190 @@ item_stats %>%
   )
 ```
 
-# Missingness
+## Skewness and kurtosis
+
+We examine skewness and kurtosis for each item to check whether responses are spread across the scale or piled up at one end. If everyone scores high/low on an item, it means that the item is too easy/hard to endorse and cannot discriminate between people with high versus low levels of that trait being measured. Moreover, items where most people gave the same answer have little variation, which makes it harder for factor analysis to detect the underlying structure, regardless of the estimation method used.
+
+- Items with **negative skew** and **high positive kurtosis** (left tail) may have a "ceiling effect" where an item is too easy to endorse and almost everyone agrees.
+
+- Items with **positive skew** and **high negative kurtosis**(right tail) may have a "floor effect" where an item is too extreme to endorse and very few people agree.
+
+Avoiding ceiling/floor effects is crucial because if items cluster at the extremes, you lose the ability to distinguish among people at those ends.
+
+Following @kline2016, we treat absolute skewness and kurtosis values above 1.5 as a sign that an item's responses are too bunched together to be useful. Items exceeding this threshold will be considered for removal or rewording alongside the other item reduction criteria. Additionally, we may consider keeping items with high skew or kurtosis for comparison or reporting purposes but flag them for removal from factor analysis.
+
+```{r}
+dist_threshold <- 1.5
+
+dist_data <- items_data %>%
+  summarise(
+    across(all_of(everything()), list(
+        skew = ~ psych::skew(.x,    na.rm = TRUE),
+        kurt = ~ psych::kurtosi(.x, na.rm = TRUE)
+      ), .names = "{.col}_{.fn}")
+  ) %>%
+  pivot_longer(
+    everything(),
+    names_to  = c("item", ".value"),
+    names_sep = "_(?=[^_]+$)"
+  ) %>%
+  separate(item, c("subscale", "q_n"), sep = "_", remove = FALSE)
+
+# adding another threshold from visual inspection
+v_dist_threshold <- 1.3
+
+ggplot(dist_data, aes(x = skew, y = kurt, colour = subscale, label = item)) +
+  geom_point() +
+  geom_hline(yintercept=c(-dist_threshold, dist_threshold)) +
+  geom_vline(xintercept=c(-dist_threshold, dist_threshold)) +
+  geom_hline(yintercept=c(-v_dist_threshold, v_dist_threshold),linetype="dashed",color='red') +
+  geom_vline(xintercept=c(-v_dist_threshold, v_dist_threshold),linetype="dashed",color='red') +
+  labs(x = "Skewness", y = "Kurtosis")
+```
+
+```{r}
+dist_items <- dist_data %>%
+  filter(abs(skew) > v_dist_threshold | abs(kurt) > v_dist_threshold) %>% 
+  select(item, skew, kurt)
+
+if (nrow(dist_items) > 0) {
+  dist_items  %>% knitr::kable(digits = 2)
+}
+```
+
+**Average skew and kurtosis by dimension**
+
+```{r}
+dist_data %>% 
+  group_by(subscale) %>% 
+  summarise(
+    n         = n(),
+    mean_skew = mean(skew, na.rm = TRUE),
+    mean_kurt = mean(kurt, na.rm = TRUE),
+    .groups   = "drop"
+  ) %>% 
+  arrange(mean_skew) %>% 
+  kable(digits = 2, col.names = c("Subscale", "N items", "Mean Skew", "Mean Kurtosis"))
+```
+
+## Distributional shapes
+
+Beyond flagging items with high skew, we can also visually inspect the distribution of each item, looking for items where people consistently avoid using certain points in the scale such as items with responses clustered at the top and end of the scale (Bimodal distribution) or items where some scale points are consistently not used. These items might need to be reworded or removed depending on their distributional shape.
+
+```{r, warning=FALSE}
+#| fig-height: 2.5
+#| fig-width: 10
+long_data <- items_data %>%
+  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
+  mutate(factor = sub("_.*", "", item))
+
+y_max <- long_data %>% 
+  count(item, response) %>% 
+  group_by(item) %>% 
+  mutate(prop = n / sum(n)) %>% 
+  pull(prop) %>% 
+  max()
+
+for (f in unique(long_data$factor)) {
+  p <- long_data %>%
+    filter(factor == f) %>%
+    ggplot(aes(x = factor(response), y = after_stat(prop), group = 1)) +
+    geom_bar(fill = "#D85A30") +
+    scale_x_discrete(limits = as.character(1:7)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    coord_cartesian(ylim = c(0, y_max)) +
+    facet_wrap(~ item, nrow = 1) +
+    labs(x = "", y = "") +
+    theme_minimal(base_size = 16)
+  
+  print(p)
+}
+```
+
+## Item-factor correlations
+
+```{r}
+poly_r_drop <- function(items_data) {
+  rho <- polychoric(items_data)$rho
+  n   <- ncol(rho)
+  
+  map_dfr(seq_len(n), function(i) {
+    others  <- setdiff(seq_len(n), i)
+    cov_ir  <- sum(rho[i, others])
+    var_rest <- sum(rho[others, others])
+    tibble(
+      item    = colnames(rho)[i],
+      it_corr = cov_ir / sqrt(var_rest)
+    )
+  })
+}
+
+item_factor_cors <- cols_tpsai %>%
+  split(sub("_.*", "", .)) %>%
+  map_dfr(~ {
+    items_data %>%
+      select(all_of(.x)) %>%
+      poly_r_drop()
+  }, .id = "factor")
+```
+
+**Heatmap of item-factor correlations**
+
+```{r}
+item_factor_cors %>%
+  mutate(item_num = sub(".*_", "", item)) %>%
+  ggplot(aes(x = factor, y = item_num, fill = it_corr)) +
+  geom_tile() +
+  geom_text(aes(label = round(it_corr, 2))) +
+  scale_fill_gradientn(
+    colours = c("#c94040", "#f0a875", "#efefef", "#82c882"),
+    values  = scales::rescale(c(-1, 0, 0.3, 1)),
+    limits  = c(-1, 1)
+  ) +
+  labs(x = "", y = "Item No.", fill = "r") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid = element_blank()) + 
+  scale_x_discrete(position = "top") + 
+  scale_y_discrete(limits = rev)
+```
+
+**Average item-factor correlation by factor**
+
+```{r}
+item_factor_cors %>%
+  group_by(factor) %>%
+  summarise(
+    n_items  = n(),
+    mean_r   = mean(it_corr, na.rm = TRUE),
+    min_r    = min(it_corr, na.rm = TRUE),
+    max_r    = max(it_corr, na.rm = TRUE),
+    .groups  = "drop"
+  ) %>%
+  arrange(mean_r) %>%
+  kable(digits = 2, col.names = c("Factor", "N items", "Mean r", "Min r", "Max r"))
+```
+
+## Inter-item correlations
+
+Lastly, we examine pairwise inter-item correlations. Items correlating above .7 suggest they may be measuring the same underlying concept. Where such pairs are identified, we consider whether the affected items should be merged, reassigned to a different factor, or removed.
+
+```{r}
+ii_cor_threshold <- 0.8
+
+items_data %>%
+  select(all_of(cols_tpsai)) %>%
+  polychoric() %>%.$rho %>%
+  as.data.frame() %>%
+  rownames_to_column("item1") %>%
+  pivot_longer(-item1, names_to = "item2", values_to = "r") %>%
+  filter(r > -1 & r < 1) %>%
+  filter(item1 < item2) %>% 
+  # filter(sub("_.*", "", item1) != sub("_.*", "", item2)) %>% # within-factor filter
+  filter(abs(r) > ii_cor_threshold) %>%
+  knitr::kable(digits = 2)
+```
+
+## Missingness
 
 Items where many people respond `Don't know` likely capture constructs that participants are uncertain about and can reduce the effective sample size and item statistics like means and correlations. We decided to drop items exceeding 30% missing responses. Our rationale is that if at least 3 out of 10 individuals were not able to meaningfully engage with an item, dropping it simplifies our scale and allows it to focus on measuring items with generally clearer responses.
 
@@ -112,102 +417,15 @@ if (nrow(missing_items) > 0) {
 }
 ```
 
-# Distributional Shapes
-
-## Skewness and Kurtosis
-
-We examine skewness and kurtosis for each item to check whether responses are spread across the scale or piled up at one end. If everyone scores high/low on an item, it means that the item is too easy/hard to endorse and cannot discriminate between people with high versus low levels of that trait being measured. Moreover, items where most people gave the same answer have little variation, which makes it harder for factor analysis to detect the underlying structure, regardless of the estimation method used.
-
--   Items with **negative skew** and **high positive kurtosis** (left tail) may have a "ceiling effect" where an item is too easy to endorse and almost everyone agrees.
-
--   Items with **positive skew** and **high negative kurtosis**(right tail) may have a "floor effect" where an item is too extreme to endorse and very few people agree.
-
-Avoiding ceiling/floor effects is crucial because if items cluster at the extremes, you lose the ability to distinguish among people at those ends.
-
-Following @kline2016, we treat absolute skewness and kurtosis values above 1.5 as a sign that an item's responses are too bunched together to be useful. Items exceeding this threshold will be considered for removal or rewording alongside the other item reduction criteria. Additionally, we may consider keeping items with high skew or kurtosis for comparison or reporting purposes but flag them for removal from factor analysis.
-
-```{r}
-dist_threshold <- 1.5
-
-dist_data <- items_data %>%
-  summarise(
-    across(all_of(everything()), list(
-        skew = ~ psych::skew(.x,    na.rm = TRUE),
-        kurt = ~ psych::kurtosi(.x, na.rm = TRUE)
-      ), .names = "{.col}_{.fn}")
-  ) %>%
-  pivot_longer(
-    everything(),
-    names_to  = c("item", ".value"),
-    names_sep = "_(?=[^_]+$)"
-  ) %>%
-  separate(item, c("subscale", "q_n"), sep = "_", remove = FALSE)
-
-# adding another threshold at 1.25 from visual inspection
-v_dist_threshold <- 1.25
-
-ggplot(dist_data, aes(x = skew, y = kurt, colour = subscale, label = item)) +
-  geom_point() +
-  geom_hline(yintercept=c(-dist_threshold, dist_threshold)) +
-  geom_vline(xintercept=c(-dist_threshold, dist_threshold)) +
-  geom_hline(yintercept=c(-v_dist_threshold, v_dist_threshold),linetype="dashed",color='red') +
-  geom_vline(xintercept=c(-v_dist_threshold, v_dist_threshold),linetype="dashed",color='red') +
-  labs(x = "Skewness", y = "Kurtosis")
-```
-
-```{r}
-dist_items <- dist_data %>%
-  filter(abs(skew) > v_dist_threshold | abs(kurt) > v_dist_threshold) %>% 
-  select(item, skew, kurt)
-
-if (nrow(dist_items) > 0) {
-  dist_items  %>% knitr::kable(digits = 2)
-}
-```
-
-## Visual Inspection
-
-Beyond flagging items with high skew, we can also visually inspect the distribution of each item, looking for items where people consistently avoid using certain points in the scale such as items with responses clustered at the top and end of the scale (Bimodal distribution) or items where some scale points are consistently not used. These items might need to be reworded or removed depending on their distributional shape.
-
-```{r, warning=FALSE}
-#| fig-height: 2.5
-#| fig-width: 10
-long_data <- items_data %>%
-  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
-  mutate(factor = sub("_.*", "", item))
-
-y_max <- long_data %>% 
-  count(item, response) %>% 
-  group_by(item) %>% 
-  mutate(prop = n / sum(n)) %>% 
-  pull(prop) %>% 
-  max()
-
-for (f in unique(long_data$factor)) {
-  p <- long_data %>%
-    filter(factor == f) %>%
-    ggplot(aes(x = factor(response), y = after_stat(prop), group = 1)) +
-    geom_bar(fill = "#D85A30") +
-    scale_x_discrete(limits = as.character(1:7)) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-    coord_cartesian(ylim = c(0, y_max)) +
-    facet_wrap(~ item, nrow = 1) +
-    labs(x = "", y = "") +
-    theme_minimal(base_size = 16)
-  
-  print(p)
-}
-```
-
-# Survey Duration
+# Duration
 
 Displaying survey duration for pilot test responses in order to decided how much to grant for future data collection.
 
 ```{r, warning=FALSE}
-p80 <- quantile(d$raw_data$`Duration (in seconds)`, 0.80, na.rm = TRUE)
-p95 <- quantile(d$raw_data$`Duration (in seconds)`, 0.95, na.rm = TRUE)
+p80 <- quantile(raw_data$`Duration (in seconds)`, 0.80, na.rm = TRUE)
+p95 <- quantile(raw_data$`Duration (in seconds)`, 0.95, na.rm = TRUE)
 
-ggplot(d$raw_data, aes(x = `Duration (in seconds)`)) +
+ggplot(raw_data, aes(x = `Duration (in seconds)`)) +
   geom_histogram(bins = 50) +
   xlim(NA, p95) +
   geom_vline(xintercept = p80, linetype = "dashed", color = "red")
