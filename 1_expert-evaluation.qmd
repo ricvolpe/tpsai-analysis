@@ -45,28 +45,39 @@ data.frame(
   question_label = unlist(question_labels[cols_tpsai]),
   factor_item = factors_map$Item,
   match = unlist(question_labels[cols_tpsai]) == factors_map$Item
-) %>% filter(!match)  %>% nrow()
+) %>% filter(!match)  %>% nrow() == 0
 ```
 
 ```{r}
-# generate random data for code development before data collection
-random_data <- as.data.frame(
-  lapply(cols_tpsai, function(col) {
-    sample(names(choices), size=5, replace=TRUE)
-  })
-)
-colnames(random_data) <- cols_tpsai
-```
-
-```{r}
-analysis_data <- raw_data # switch to raw_data after data collection
+analysis_data <- raw_data
 
 experts_data <- analysis_data %>%
   select(all_of(cols_tpsai))  %>%
   mutate(across(all_of(cols_tpsai), ~ choices[.x]))
 ```
 
-# Inter-Rater Agreement
+# Expertise
+
+Examining the inter-disciplinary nature of expertise by showing which expert had which expertise.
+
+```{r}
+expr_raw <- analysis_data$EXPR
+
+tibble(expert = paste0("E", seq_along(expr_raw)), discipline = expr_raw) %>%
+  separate_rows(discipline, sep = ",") %>%
+  mutate(discipline = str_trim(discipline)) %>%
+  mutate(discipline = fct_infreq(discipline) %>% fct_rev()) %>%  # <- add this
+  ggplot(aes(x = expert, y = discipline)) +
+  geom_tile(fill = "#378ADD", colour = "white", linewidth = 0.5) +
+  labs(x = NULL, y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid  = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+# Agreement
 
 ```{r}
 ratings_matrix <- experts_data %>%
@@ -88,28 +99,7 @@ interpret_alpha <- case_when(
 cat("Krippendorff's alpha =", round(overall_alpha$value, 3), "-", interpret_alpha)
 ```
 
-## Inter-disciplinary expertise
-
-Examining the inter-disciplinary nature of expertise by showing which expert had which expertise.
-
-```{r}
-expr_raw <- analysis_data$EXPR
-
-tibble(expert = paste0("E", seq_along(expr_raw)), discipline = expr_raw) %>%
-  separate_rows(discipline, sep = ",") %>%
-  mutate(discipline = str_trim(discipline)) %>%
-  mutate(discipline = fct_infreq(discipline) %>% fct_rev()) %>%  # <- add this
-  ggplot(aes(x = expert, y = discipline)) +
-  geom_tile(fill = "#378ADD", colour = "white", linewidth = 0.5) +
-  labs(x = NULL, y = NULL) +
-  theme_minimal(base_size = 12) +
-  theme(
-    panel.grid  = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-```
-
-# Expert Evaluations
+# Evaluations
 
 Expert judges evaluated each item and voted to Keep, Drop, or Reword it. The majority vote determined the final recommendation for each item. When two options tied, the following rules resolved the decision.
 
@@ -145,17 +135,21 @@ decisions <- experts_data %>%
 kable(decisions, col.names = c("Item", "Keep", "Drop", "Reword", "% Agreement", "Decision"))
 ```
 
-## Decisions by theoretical factor
+Average agreement (CVI) is `r mean(decisions$pct_agree) * 100`%
+
+## Grouped by dimension
 
 ```{r}
 factor_summary <- decisions %>%
   mutate(factor = str_extract(item, "^[A-Z]+")) %>%
   group_by(factor) %>%
   summarise(
-    keep   = sum(n_keep),
-    drop   = sum(n_drop),
-    reword = sum(n_reword),
-    total  = keep + drop + reword
+    keep        = sum(n_keep),
+    drop        = sum(n_drop),
+    reword      = sum(n_reword),
+    total       = keep + drop + reword,
+    avg_agree   = round(mean(pct_agree) * 100, 1),  # pct_agree is 0-1 in decisions
+    .groups     = "drop"
   ) %>%
   mutate(
     pct_keep   = keep   / total * 100,
@@ -170,6 +164,15 @@ factor_summary <- decisions %>%
   ) %>%
   mutate(decision = factor(str_to_title(decision), levels = c("Keep", "Reword", "Drop")))
 
+kable(
+  factor_summary %>%
+    select(factor, decision, percentage, avg_agree) %>%
+    pivot_wider(names_from = decision, values_from = percentage) %>%
+    select(Factor = factor, Keep, Reword, Drop, `Avg. Agreement (%)` = avg_agree)
+)
+```
+
+```{r}
 ggplot(factor_summary, aes(x = factor, y = percentage, fill = decision)) +
   geom_col(width = 0.6) +
   scale_fill_manual(values = c(
