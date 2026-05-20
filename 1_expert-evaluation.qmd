@@ -66,6 +66,8 @@ This is what experts read during their evaluation of questions.
 
 8.  **"Artificial Humanness":** Recognition that the AI communicates in human-like ways while differing from humans in its lack of embodied emotion and shared experience, and an adjustment of one's expectations and reliance accordingly (coded as `HUMN` and later renamed as *Sentience Attribution* for reporting)
 
+For question wordings see, [expert-evaluation_qs.csv](surveys/expert-evaluation_qs.csv)
+
 # Data Processing
 
 ```{r, echo=FALSE}
