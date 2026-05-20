@@ -12,7 +12,7 @@ execute:
   warning: false
 ---
 
-# Expert Survey Structure  
+# Survey  
 
 This is what experts read during their evaluation of questions.
 
@@ -46,9 +46,9 @@ This is what experts read during their evaluation of questions.
 >
 > - Philosophy / ethics of AI
 
-# Factors / Dimensions
+# Dimensions
 
-*Shown below are the explanations of factors that we provided experts with.*
+These are the candidate dimensions that we showed to expert and their explanations:
 
 1.  **Psychological Competence:** Belief that the AI can provide accurate psychological information and help make sense of personal challenges (coded as `COMP`)
 
@@ -193,7 +193,7 @@ kable(decisions, col.names = c("Item", "Keep", "Drop", "Reword", "% Agreement", 
 
 Average agreement (CVI) is `r mean(decisions$pct_agree) * 100`%
 
-## Grouped by dimension
+**Grouped by dimension**
 
 ```{r}
 factor_summary <- decisions %>%
@@ -242,7 +242,7 @@ ggplot(factor_summary, aes(x = factor, y = percentage, fill = decision)) +
   theme(legend.position   = "top")
 ```
 
-# Factors to add
+# Additions
 
 ```{r}
 analysis_data$COMP_ADD

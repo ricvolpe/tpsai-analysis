@@ -2208,16 +2208,13 @@ vertical-align: -.125em;
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#expert-survey-structure" id="toc-expert-survey-structure" class="nav-link active" data-scroll-target="#expert-survey-structure">Expert Survey Structure</a></li>
-  <li><a href="#factors-dimensions" id="toc-factors-dimensions" class="nav-link" data-scroll-target="#factors-dimensions">Factors / Dimensions</a></li>
+  <li><a href="#survey" id="toc-survey" class="nav-link active" data-scroll-target="#survey">Survey</a></li>
+  <li><a href="#dimensions" id="toc-dimensions" class="nav-link" data-scroll-target="#dimensions">Dimensions</a></li>
   <li><a href="#data-processing" id="toc-data-processing" class="nav-link" data-scroll-target="#data-processing">Data Processing</a></li>
   <li><a href="#expertise" id="toc-expertise" class="nav-link" data-scroll-target="#expertise">Expertise</a></li>
   <li><a href="#agreement" id="toc-agreement" class="nav-link" data-scroll-target="#agreement">Agreement</a></li>
-  <li><a href="#evaluations" id="toc-evaluations" class="nav-link" data-scroll-target="#evaluations">Evaluations</a>
-  <ul class="collapse">
-  <li><a href="#grouped-by-dimension" id="toc-grouped-by-dimension" class="nav-link" data-scroll-target="#grouped-by-dimension">Grouped by dimension</a></li>
-  </ul></li>
-  <li><a href="#factors-to-add" id="toc-factors-to-add" class="nav-link" data-scroll-target="#factors-to-add">Factors to add</a></li>
+  <li><a href="#evaluations" id="toc-evaluations" class="nav-link" data-scroll-target="#evaluations">Evaluations</a></li>
+  <li><a href="#additions" id="toc-additions" class="nav-link" data-scroll-target="#additions">Additions</a></li>
   </ul>
 </nav>
 </div>
@@ -2248,8 +2245,8 @@ vertical-align: -.125em;
 </header>
 
 
-<section id="expert-survey-structure" class="level1">
-<h1>Expert Survey Structure</h1>
+<section id="survey" class="level1">
+<h1>Survey</h1>
 <p>This is what experts read during their evaluation of questions.</p>
 <blockquote class="blockquote">
 <p>The purpose of our research is to develop and validate a scale to measures how much people trust generative AIs (like ChatGPT or Claude) for psychological support, such as discussing feelings, sharing worries, or seeking advice about relationships.</p>
@@ -2273,9 +2270,9 @@ vertical-align: -.125em;
 </ul>
 </blockquote>
 </section>
-<section id="factors-dimensions" class="level1">
-<h1>Factors / Dimensions</h1>
-<p><em>Shown below are the explanations of factors that we provided experts with.</em></p>
+<section id="dimensions" class="level1">
+<h1>Dimensions</h1>
+<p>These are the candidate dimensions that we showed to expert and their explanations:</p>
 <ol type="1">
 <li><p><strong>Psychological Competence:</strong> Belief that the AI can provide accurate psychological information and help make sense of personal challenges (coded as <code>COMP</code>)</p></li>
 <li><p><strong>Personalisation:</strong> Belief that the AI can recognise individual needs, retain relevant information, and offer support that is tailored to one’s specific situation (coded as <code>PERS</code>)</p></li>
@@ -2752,8 +2749,7 @@ vertical-align: -.125em;
 </div>
 </div>
 <p>Average agreement (CVI) is 69.95%</p>
-<section id="grouped-by-dimension" class="level2">
-<h2 class="anchored" data-anchor-id="grouped-by-dimension">Grouped by dimension</h2>
+<p><strong>Grouped by dimension</strong></p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>factor_summary <span class="ot">&lt;-</span> decisions <span class="sc">%&gt;%</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">factor =</span> <span class="fu">str_extract</span>(item, <span class="st">&quot;^[A-Z]+&quot;</span>)) <span class="sc">%&gt;%</span></span>
@@ -2878,9 +2874,8 @@ vertical-align: -.125em;
 </div>
 </div>
 </section>
-</section>
-<section id="factors-to-add" class="level1">
-<h1>Factors to add</h1>
+<section id="additions" class="level1">
+<h1>Additions</h1>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>analysis_data<span class="sc">$</span>COMP_ADD</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
