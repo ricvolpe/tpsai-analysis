@@ -1,5 +1,5 @@
 ---
-title: "Factor Analysis"
+title: "Exploratory Factor Analysis (EFA)"
 author: "Riccardo Volpato"
 format:
   html:
@@ -12,152 +12,106 @@ execute:
   warning: false
 ---
 
+# Data Preparation
+
 ```{r, echo=FALSE}
 library(tidyverse)
 library(gtools)
 library(psych)
 library(knitr)
 library(parameters)
-
-seed <- 8675309
-set.seed(seed) # makes sure random numbers are reproducible
 ```
 
 ```{r}
-# OPTION 1: Simulate data
-source("scripts/simulate_data.R")
-
-efa_data <- simulate_data(
-  sample_path = "data/TPSai+-+Pilot+Tester_27+April+2026_13.02.csv", 
-  factors_path =  "data/factors_v1.1.csv",
-  seed = seed,
-  n = 250)
-cols_tpsai <- names(efa_data)[c(2:40)]
+options(readr.show_col_types = FALSE)
+file_path <- "data/TPSai+-+Pilot.csv" #TODO: replace pilot data with EFA sample
+raw_data  <- read_csv(file_path, n_max = 2)
+colnames  <- names(raw_data)
+q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
 ```
 
 ```{r}
-#| eval: false
-#| include: false
-# OPTION 2: Use alternative 4-factors structure
-lookup <- read.csv("data/factors_v2.csv", stringsAsFactors = FALSE)
-idx <- match(names(efa_data), lookup$v1)
-names(efa_data)[!is.na(idx)] <- lookup$v2[idx[!is.na(idx)]]
-cols_tpsai <- lookup$v2
-
-# reverse coded items
-efa_data$COR_05 <- 8 - efa_data$COR_05
+factors_map <- read_csv('surveys/pilot-test_qs.csv') #TODO: replace with EFA questions
+cols_tpsai <- sprintf("TPSAI_%d", seq_along(seq_along(1:nrow(factors_map))))
 ```
 
 ```{r}
-#| eval: false
-#| include: false
-# OPTION 3: using actual pilot data without simulating
-source("scripts/read_qualtrics_data.R")
-d <-load_data("data/TPSai+-+Pilot+Tester.csv", "data/factors_v1.1.csv")
-efa_data <- d$items_data
-efa_data[is.na(efa_data)] <- 4
-cols_tpsai <- d$item_ids
+# check that survey and factors correspond
+data.frame(
+  survey_col  = cols_tpsai,
+  survey_q    = unname(q_text[cols_tpsai]),
+  factor_item = factors_map$Item
+) %>%
+  mutate(match = survey_q == factor_item) |>
+  filter(!match)  %>% nrow() == 0
 ```
 
-# Exploratory Factor Analysis
-
-*Brief Explainer*
-
-> Exploratory factor analysis (EFA) is a statistical technique for identifying hidden structure in a set of items. The core idea is simple: if many items correlate with each other, they are probably all measuring some common underlying thing, a latent factor. EFA works by finding the smallest number of latent factors that can reproduce the observed correlations among items. It does this by asking: if these factors exist, what pattern of correlations between items would they produce? The solution that best matches the actual observed correlations, leaving the smallest residuals, is retained. Because EFA makes no assumptions about which items belong to which factor, it is well suited to the early stages of scale development, where the goal is to let the data reveal the underlying structure rather than confirm a predetermined one.
-
-We use EFA to assess whether our theoretical factor structure is confirmed by the empirical factor structure in the data.
-
-## Factorability
-
-Before applying EFA, we examine the Kaiser-Meyer-Olkin (KMO) index which asks whether the correlations among items are sufficiently compact and patterned to yield reliable factors. Values above .80 indicate good sampling adequacy and values above .90 are excellent. We treat KMO as our primary indicator of factorability.
-
-Thorughout our EFA analysis, we use polychoric correlation matrix rather than the standard Pearson correlation matrix, as polychoric correlations are more appropriate for ordinal Likert data [@boateng2018].
-
 ```{r}
-
-R <- polychoric(efa_data %>% select(all_of(cols_tpsai)))$rho
-
-KMO(R)$MSA
-```
-
-## Parallel Analysis
-
-*Brief Explainer*
-
-> A key decision in EFA is how many factors to extract. Extracting too few factors leaves meaningful structure unexplained; extracting too many produces factors that are essentially fitting noise in the data. **Parallel analysis** addresses this by comparing each factor's eigenvalue from the real correlation matrix to the corresponding eigenvalue from random correlation matrices of the same dimensions. Each factor is associated with an *eigenvalue*. Mathematically, an eigenvalue summarises how much of the shared variance among items a factor captures. When EFA extracts a factor, it finds a weighted combination of items that explains as much of the common variance as possible, the eigenvalue is the sum of the squared factor loadings for that factor across all items. A large eigenvalue therefore means many items have high loadings on that factor. Eigenvalues are computed using MINRES estimation, which minimises the residual correlations between the observed and reproduced correlation matrices and makes no distributional assumptions. In parallel analysis, factors are ordered by their eigenvalues from largest to smallest, with the first eigenvalue belonging to the first factor, the one explaining the most variance of the real correlation matrix, the second to the second factor, and so on. For each factor in turn, if the eigenvalue from the real data exceeds the average eigenvalue from the random matrices, meaning the factor is accounting for more variance than a factor extracted from pure noise would, that factor is considered to reflect genuine underlying structure in the data and is worth retaining. The moment the real eigenvalue drops below the random one, which is also what the scree plot visualises, with the blue line (real data) dropping below the red line (random data), that factor and all subsequent ones are considered noise and discarded.
-
-```{r}
-fa <- fa.parallel(R, n.obs = nrow(efa_data), fm = "minres", fa = "fa")
-```
-
-## Factor Estimation
-
-*Brief Explainer*
-
-> Once the number of factors is determined, we extract them using *MINRES* estimation with *oblimin* rotation.
->
-> **MINRES** (minimum residual) estimation finds the factor solution that minimises the residuals, the differences between the observed correlation matrix and the one reproduced by the factor model. It makes no distributional assumptions, making it well suited to ordinal Likert data compared to maximum likelihood estimation, which assumes multivariate normality. It is the same method we used to compute eigenvalues and determine the number of factors.
->
-> **Rotation** is applied after initial factor extraction to make the solution more interpretable. Without rotation, factors are mathematically defined but often difficult to interpret because most items load moderately onto most factors. Rotation redistributes the variance among factors to achieve a simpler, cleaner pattern where each item loads strongly onto one factor and weakly onto others.
->
-> We use **oblimin**, which is an oblique rotation method meaning factors are allowed to correlate with one another. This is theoretically appropriate here because items within each factor are expected to measure related but distinct aspects of the same broader construct. An orthogonal rotation such as varimax would force factors to be uncorrelated, which is a stronger and less realistic assumption in psychological measurement. Importantly, if the factors turn out to be empirically uncorrelated, oblimin will recover the same solution as an orthogonal rotation, so nothing is lost by choosing oblique rotation.
-
-```{r}
-efa <- fa(
-  r=R, 
-  nfactors = fa$nfact, # can ither user `fa$nfact` or visual 'elbow' criteria from plot
-  n.obs = nrow(efa_data),
-  fm = "minres",
-  rotate = "oblimin"
+likert_levels <- c(
+  "Strongly disagree"          = 1,
+  "Disagree"                   = 2,
+  "Somewhat disagree"          = 3,
+  "Neither agree nor disagree" = 4,
+  "Somewhat agree"             = 5,
+  "Agree"                      = 6,
+  "Strongly agree"             = 7,
+  "Don't know"                 = NA
 )
+
+efa_data <- raw_data |>
+  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x])) |>
+  select(all_of(cols_tpsai))
 ```
 
-Before exploring item loadings, we can visualise which items are assigned to which factor. This is also what we can use to export an EFA model for CFA.
-
 ```{r}
-efa_to_cfa(efa)
+# Rename columns TPSAI_1 through TPSAI_9 to TPSAI_01 through TPSAI_09
+names(efa_data) <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", names(efa_data))
+cols_tpsai <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", cols_tpsai)
 ```
 
-## Factor Loadings
+```{r}
+# up-sample pilot data to N=300 with simulation
+# use only if need a bigger N to develop analysis
+# drop for EFA data
+source("scripts/simulate_data.R")
+efa_data <- simulate_data(efa_data, n=300)
+```
+
+**Exploratory Factor Analysis** (EFA) identifies hidden structures in a set of items. The core idea: if items correlate, they're probably measuring a common underlying thing — a latent factor. EFA finds the factors that can reproduce the observed correlations, retaining the solution that leaves the smallest residuals. Throughout our EFA, we use polychoric correlation matrix rather than the standard Pearson correlation matrix, as polychoric correlations are more appropriate for ordinal Likert data [@boateng2018].
 
 ```{r}
-plot_loadings <- function(efa, order = c("theoretical", "empirical")) {
-  
-  order <- match.arg(order)
-  
-  loads <- efa$loadings |>
+R <- polychoric(efa_data %>% select(all_of(cols_tpsai)))$rho
+n_obs <- nrow(efa_data)
+```
+
+**Helper functions**
+
+```{r}
+plot_loadings <- function(loadings) {
+  loads <- loadings |>
     unclass() |>
     as.data.frame() |>
-    rownames_to_column("item")
-  
-  factor_cols <- setdiff(names(loads), "item")
-  
-  loads <- loads |>
-    rowwise() |>
+    rownames_to_column("item") |>
+    pivot_longer(
+      cols = -c(item), 
+      names_to = "factor", 
+      values_to = "loading") |>
     mutate(
-      primary_factor = factor_cols[which.max(abs(c_across(all_of(factor_cols))))],
-      max_loading    = max(abs(c_across(all_of(factor_cols))))
+      item = factor(item),
+      label = as.character(round(loading, 2))
     ) |>
+    group_by(item) |>
+    mutate(bold = abs(loading) == max(abs(loading))) |>
     ungroup()
   
-  ordered_items <- if (order == "empirical") {
-    loads |>
-      arrange(primary_factor, desc(max_loading)) |>
-      pull(item)
-  } else {
-    loads |>
-      pull(item)
-  }
-  
-  loads |>
-    pivot_longer(cols = -c(item, primary_factor, max_loading), names_to = "factor", values_to = "loading") |>
-    mutate(
-      item = factor(item, levels = ordered_items),
-      label = ifelse(abs(loading) >= 0.3, as.character(round(loading, 2)), "-")
-    ) |>
-    ggplot(aes(x = factor, y = item, fill = loading)) +
+  ggplot(loads, aes(x = factor, y = item, fill = loading)) +
     geom_tile() +
-    geom_text(aes(label  = label, colour = abs(loading) > 0.5)) +
+    geom_text(data = filter(loads, !bold),
+              aes(label = label, colour = abs(loading) > 0.5)) +
+    geom_text(data = filter(loads, bold),
+              aes(label = label, colour = abs(loading) > 0.5),
+              fontface = "bold") +
     scale_colour_manual(values = c("TRUE" = "white", "FALSE" = "black"), guide = "none") +
     scale_fill_gradient2(low = "blue", mid = "white", high = "red") +
     scale_y_discrete(limits = rev) +
@@ -166,230 +120,322 @@ plot_loadings <- function(efa, order = c("theoretical", "empirical")) {
 }
 ```
 
-We visualise how the items load across factors through a heat-map. First, are interested to see whether the empirical factor structure suggested by EFA matches our theoretical factor structure. Thus we plot the EFA results ordered by theoretical factors. In our plot, we hide the value of loadings below 0.3 to avoid visual cluttering.
-
 ```{r}
-#| fig-width: 7
-#| fig-height: 9
-plot_loadings(efa, order = "theoretical")
-```
-
-Since the empirical factor structure of EFA seems largely unrelated to our theoretical factor structure, we then visualise the factor structure with items ordered by empirical loadings.
-
-```{r}
-#| fig-width: 7
-#| fig-height: 9
-plot_loadings(efa, order = "empirical")
-```
-
-An ideal EFA factors solution is robust and simple, that is when loadings have high values in one factor only [@buchanan2014]. More specifically, in an good/interpretable solution each factor has at least 3 items and there are no "bad" items such as *weak loaders* that have a low primary loading (\< 0.5) or *cross-loaders* that have small difference between primary and secondary loading (\< 0.15).
-
-```{r}
-flag_items <- function(efa, min_primary = 0.5, min_diff = 0.15) {
+factors_as_items <- function(efa) {
+  cfa_syntax <- paste(capture.output(efa_to_cfa(efa)), collapse = "\n")
+  lines <- strsplit(cfa_syntax, "\n")[[1]]
   
-  efa$loadings |>
-    unclass() |>
-    as.data.frame() |>
-    rownames_to_column("item") |>
-    rowwise() |>
-    mutate(
-      abs_loads      = list(sort(abs(c_across(-item)), decreasing = TRUE)),
-      primary        = abs_loads[[1]],
-      secondary      = abs_loads[[2]],
-      diff           = primary - secondary,
-      low_primary    = primary < min_primary,
-      low_diff       = diff < min_diff,
-      flagged        = low_primary | low_diff
-    ) |>
-    ungroup() |>
-    filter(flagged) |>
-    select(item, primary, secondary, diff, low_primary, low_diff) |>
-    knitr::kable(digits = 2)
+  rows <- list()
+  for (line in lines) {
+    factor_name <- regmatches(line, regexpr("MR\\d+", line))
+    if (length(factor_name) == 0) next
+    
+    nums <- as.integer(regmatches(line, gregexpr("(?<=TPSAI_)\\d+", line, perl = TRUE))[[1]])
+    
+    rows[[length(rows) + 1]] <- data.frame(
+      Factor = factor_name,
+      IID    = nums,
+      Item   = factors_map[nums, "Item"],
+      stringsAsFactors = FALSE
+    )
+  }
+  
+  do.call(rbind, rows) |>
+    arrange(Factor, IID)
 }
-
-flag_items(efa)
 ```
 
-# Factor Diagnostics
+# EFA: Top-Level Structure
 
-In order to understand why our theoretical factor structure does not match the empirical factor structure suggested by EFA, we can inspect the structure of correlations in our data, including factor-factor, item-factor, and cross-factor inter-item correlations. By examining these we can search for a different factor structure that might have more empirical support from the collected data and revise our factor structure and its items accordingly.
+Our theoretical assumption is that TPSai items are primarily organised into a top-level structure with the two factors of *Trust* and *Distrust.* Thus, the first step in our EFA is it explore the data we collected in its entirely, confirming whether the top-level Trust/Distrust factor structure exists or whether an entirely different emergent structure exists at the top level.
 
-## Factor correlations
+## Factorability
 
-We report Spearman correlations between the theoretical factors to examine their inter-relationships. Spearman correlations are used as a rank-based, distribution-free alternative to Pearson, which is more appropriate for composite scores derived from ordinal Likert items [@boateng2018].
-
-We visually inspect factor correlations as a heat-map and hide perfect correlations of a factor with itself to avoid visual anchoring on values of 1.0. High inter-factor correlations (above 0.7) strongly suggests the factors may be measuring the same underlying construct and should be considered for merging while medium/high correlations (0.5-0.7) indicate scrutinising whether the factors are conceptually distinguishable.
+First, we report the Kaiser-Meyer-Olkin (KMO) index which asks whether the correlations among items are sufficiently compact and patterned to yield reliable factors. We compute both the overall measure of sampling adequacy (MSA) and the minimum per-item MSA.
 
 ```{r}
-factors <- cols_tpsai %>%
-  split(sub("_.*", "", .)) %>%
-  imap_dfc(~ efa_data %>%
-    transmute(!!.y := rowMeans(pick(all_of(.x)), na.rm = TRUE))
+kmo <- KMO(R)
+kmo$MSA
+```
+
+If the overall MSA is below 0.8, we inspect per-item MSA and drop any items with MSA \< 0.5, then recompute the overall MSA. If the overall MSA remains below 0.8 after dropping problematic items, we will collect additional data before proceeding.
+
+```{r}
+tibble(
+  item = names(kmo$MSAi),
+  msa  = round(kmo$MSAi, 3)
+) |>
+  arrange(msa) |>
+  kable(col.names = c("Item", "MSA"))
+```
+
+## How Many Factors?
+
+We use multiple criteria to estimate the number of factors at the top level, as no single method is universally reliable. We report parallel analysis, inspect the scree plot, the Velicer MAP test, and VSS complexity indices.
+
+**Parallel analysis** compares each factor's eigenvalue from the real data against the mean eigenvalue from randomly generated correlation matrices of the same dimensions. Eigenvalues measure how much shared variance a factor accounts for. A factor is retained if its eigenvalue exceeds the random baseline, meaning it captures more variance than would be expected by chance alone.
+
+We also inspect the **scree plot** generated by parallel analysis for a clear elbow, the point at which the drop in eigenvalues between consecutive factors becomes substantially smaller, indicating that remaining factors contribute little additional explanatory power.
+
+```{r}
+fa.parallel(
+  R,
+  n.obs = nrow(efa_data),
+  fm = "minres", # minimum residual: no distributional assumptions, suits ordinal data
+  fa = "fa",     # factor analysis (not PCA)
+)
+```
+
+The **Velicer MAP test** iteratively partials out each factor from the correlation matrix and computes the average squared partial correlation. The optimal number of factors is the point at which this statistic is minimised, reflecting the solution where common variance is most fully extracted and only unique variance remains.
+
+**Very Simple Structure (VSS)** evaluates how well a simplified factor solution, where each item loads on only one factor, reproduces the original correlation matrix. We report VSS complexity 1 and complexity 2 for completeness, but do not use them as primary decision criteria.
+
+```{r}
+vss(R, n.obs = nrow(efa_data), rotate = "oblimin", fm = "minres")
+```
+
+**Decision logic**
+
+We use the MAP test and scree plot elbow as our primary criteria. If both agree, we adopt that solution. If they disagree, we examine parallel analysis and VSS complexity 2 as additional evidence. If no clear convergence emerges across all criteria, we adopt the solution suggested by MAP, which is generally considered the most accurate criterion for psychological scale data [@velicer1976; @zwick1986].
+
+```{r}
+# Set number of factors based on MAP and scree plot
+n_factors <- 2  # replace with chosen number after inspecting criteria
+```
+
+Based on this, we arrive at a suggested number of factors and proceed as follows: - **n = 1**: suggests a unidimensional structure without clear separation between Trust and Distrust. We do not proceed with the Trust/Distrust model. - **n = 2**: suggests overlap with the Trust/Distrust model. We proceed to the EFA solution. - **n \> 2**: suggests an entirely new factor structure. We proceed to the EFA solution and investigate the emergent structure.
+
+## EFA Solution
+
+We extract the suggested number of factors using **MINRES** (minimum residual) estimation with **oblimin** rotation. MINRES makes no distributional assumptions about the data, making it appropriate for ordinal Likert items. Oblimin is an oblique rotation method that allows factors to correlate — a realistic assumption for psychological constructs such as Trust and Distrust, which are unlikely to be fully independent. Oblimin also simplifies the loading structure, making factors easier to interpret.
+
+```{r}
+efa <- fa(
+  r = R,
+  nfactors = n_factors,  # determined in previous section
+  n.obs = nrow(efa_data),
+  fm = "minres",          # minimum residual: no distributional assumptions
+  rotate = "oblimin"      # oblique rotation: allows factors to correlate
+)
+```
+
+We visualise the factor loadings as a heatmap, where each cell represents the strength and direction of the relationship between an item and a factor. Loadings close to 1 or -1 indicate a strong relationship; loadings close to 0 indicate little relationship. Bold values indicate the highest loading for that item across all factors.
+
+```{r}
+#| fig-width: 7
+#| fig-height: 8
+plot_loadings(efa$loadings)
+```
+
+To interpret the factor structure, we examine which items load most strongly on each factor. Where the structure is emergent, we use item content to identify the underlying construct each factor represents.
+
+```{r}
+factors_as_items(efa) |> kable()
+```
+
+Where the factor structure maps onto a theoretical model, either the Trust/Distrust (n = 2) or the 4F/8F models (n \> 2), we additionally check whether items load on the correct theoretical factor. Items loading primarily on the wrong factor are candidates for removal or reversal:
+
+- **Removal**: if the item's content is not theoretically consistent with the factor it loads on
+- **Reversal**: if the item's content is theoretically consistent with the factor it loads on, but the loading is negative
+
+*The following example uses pilot data to illustrate how these criteria are applied in practice. The actual decisions will be made on the EFA sample.*
+
+In the pilot data, items 24, 27, 31, and 34 load primarily on the opposite factor to their theoretical assignment and are candidates for removal.
+
+#### Item Reduction
+
+We inspect the loading pattern for simple structure — ideally each item loads strongly on one factor and weakly on all others [@buchanan2014]. We flag items for removal based on two empirical criteria:
+
+- **Low primary loading**: primary loading \< 0.4 — the item does not relate strongly enough to any factor
+- **Cross-loading**: gap between primary and secondary loading \< 0.05 — the item does not discriminate sufficiently between factors. We use a lenient threshold of 0.05 rather than the conventional 0.10, acknowledging that Trust and Distrust are genuinely correlated constructs and some cross-loading is expected.
+
+Both criteria are applied independently — an item is flagged if it fails either criterion. Items near the thresholds are subject to theoretical review and may be retained if their content is theoretically justified.
+
+```{r}
+min_primary <- 0.4
+min_diff    <- 0.05
+
+loadings_df <- efa$loadings |>
+  unclass() |>
+  as.data.frame() |>
+  rownames_to_column("item") |>
+  rowwise() |>
+  mutate(
+    abs_loads = list(sort(abs(c_across(-item)), decreasing = TRUE)),
+    primary   = abs_loads[[1]],
+    secondary = abs_loads[[2]],
+    diff      = primary - secondary,
+    flagged   = primary < min_primary | diff < min_diff
+  ) |>
+  ungroup()
+
+ggplot(loadings_df, aes(primary, diff, colour = flagged)) +
+  geom_vline(xintercept = min_primary, linetype = "dashed", colour = "grey60") +
+  geom_hline(yintercept = min_diff,   linetype = "dashed", colour = "grey60") +
+  geom_point(size = 2) +
+  geom_text(aes(label = str_remove(item, "TPSAI_")),
+            size = 3, hjust = -0.4, vjust = 0.5, show.legend = FALSE) +
+  scale_colour_manual(values = c(`FALSE` = "#1D9E75", `TRUE` = "#D85A30"),
+                      labels = c("Passed", "Flagged")) +
+  labs(x = "Primary loading", y = "Primary − secondary gap", colour = NULL) +
+  theme_minimal()
+```
+
+Items falling below the vertical dashed line have a low primary loading; items falling below the horizontal dashed line are cross-loaders. Items in the lower-left quadrant fail both criteria.
+
+```{r}
+loadings_df |>
+  filter(flagged) |>
+  select(item, primary, diff) |>
+  kable(
+    digits     = 2,
+    col.names  = c("Item", "Primary", "Gap")
   )
-
-cor(factors, method = "spearman", use = "pairwise.complete.obs") %>%
-  as.data.frame() %>% 
-  rownames_to_column("F1") %>%
-  pivot_longer(-F1, names_to = "F2", values_to = "r") %>% 
-  filter(F1 > F2)  %>% 
-  ggplot(aes(x = F1, y = F2, fill = r)) +
-  geom_tile() +
-  geom_text(aes(label = round(r, 2))) +
-  scale_fill_gradient2(
-    low = "steelblue", mid = "white", high = "firebrick",
-    midpoint = 0, limits = c(-1, 1)
-  ) +
-  labs(x = "", y = "", fill = "") +
-  theme_minimal(base_size = 12) +
-  theme(panel.grid = element_blank()) +
-  scale_y_discrete(limits = rev)
 ```
 
-## Cronbach Alpha
+Items not flagged by any criterion are retained. Items flagged by one or more criteria are candidates for removal, subject to theoretical review. After removing flagged items, we update the item list and proceed to the substructure analysis.
 
-> Cronbach's alpha is a measure of internal consistency reliability, quantifying the degree to which items within a factor covary and can therefore be considered indicators of the same underlying construct. Conceptually, it reflects the average inter-item correlation within a factor, weighted by the number of items. Importantly, alpha is not a measure of unidimensionality: a factor can have acceptable alpha while still containing sub-dimensions, which is why we complement it with item-level analyses below.
-
-We then assess the internal consistency of each factor using ordinal Cronbach's alpha, computed from the polychoric correlation matrix to account for the ordinal nature of our items.We interpret α ≥ .90 as excellent, .80–.89 as good, .70–.79 as acceptable, .60–.69 as questionable, and below .60 as poor.
+*In the pilot data, the following items may be dropped:*
 
 ```{r}
-cronbach_data <- cols_tpsai %>%
-  split(sub("_.*", "", .)) %>%
-  imap_dfr(~ {
-    items <- efa_data %>% select(all_of(.x))
-    rho   <- polychoric(items)$rho
-    a     <- alpha(rho, n.obs = nrow(items))
+items_to_drop <- c(
+  "TPSAI_24", "TPSAI_27", "TPSAI_31", "TPSAI_34", # wrong factor
+  "TPSAI_23", "TPSAI_32" # low or cross loaders
+)
+cols_tpsai <- setdiff(cols_tpsai, items_to_drop)
+```
+
+# Substructures
+
+We proceed to substructure analysis only if the top-level EFA confirms a two-factor Trust/Distrust structure. We examine whether meaningful substructure exists within each factor using a **bifactor model**, which simultaneously estimates a general factor (shared by all items within the block) and specific group factors (capturing variance unique to subgroups of items).
+
+We apply this separately to Trust and Distrust items, using the theoretical item assignments to define each block. After item reduction, `cols_tpsai` contains only surviving items, so the blocks are defined as:
+
+```{r}
+trust_items    <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 1:19)]
+distrust_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 20:39)]
+
+R_trust    <- R[trust_items, trust_items]
+R_distrust <- R[distrust_items, distrust_items]
+```
+
+We fit bifactor models with k = 2, 3, and 4 group factors for each block, covering the range between our 4F theoretical model (2 subgroups per factor) and our 8F theoretical model (4 subgroups per factor). The maximum k tested is additionally constrained by block size. We do not test values of k where floor(n_items / 3) \< k, as this would make the minimum items per factor criterion unachievable by design.
+
+A solution is acceptable only if **all** minimum requirements are met:
+
+- **RMSEA \< 0.10** — acceptable model fit
+- **Minimum 3 items per group factor** — each group factor must be sufficiently represented
+- **Max/min items ratio ≤ 3** — group factors must be reasonably balanced in size
+- **ω_h \< 0.90** — the general factor must not dominate to the point where group factors are trivial
+- **≤ 20% of items are cross-loaders** — where a cross-loader is defined as an item whose gap between primary and secondary group factor loading is \< 0.05
+
+Where multiple solutions meet all minimum requirements, we prefer the solution with the fewest cross-loaders. Where cross-loaders are equal, we prefer the solution with the best factor balance (lowest ratio). Where both are equal, we prefer the solution with the lower BIC. If criteria point in different directions and no clear winner emerges, we report both solutions and discuss the trade-offs.
+
+We compare the selected solution qualitatively against our theoretical models — Cognitive/Affective and Artefact/Corporate for the 2F model, or the eight specific dimensions for the 8F model. The substructure may also be emergent, in which case we interpret it based on item content and report it as exploratory.
+
+```{r}
+compare_omega <- function(omega_list, labels = c("k=2", "k=3", "k=4"),
+                          gap_threshold = 0.05, min_loading = 0.2) {
+  
+  map_dfr(seq_along(omega_list), function(i) {
+    om  <- omega_list[[i]]
+    sl  <- om$schmid$sl
+    
+    # Extract group factor columns only (exclude g, h2, u2, p2)
+    group_cols <- sl[, grepl("^F", colnames(sl)), drop = FALSE]
+    
+    # Assign items to primary factor only if loading >= min_loading
+    primary_factor <- apply(group_cols, 1, function(x) {
+      if (max(abs(x)) < min_loading) return(NA)
+      which.max(abs(x))
+    })
+    
+    items_per_factor <- table(primary_factor[!is.na(primary_factor)])
+    
+    # Cross-loaders: gap between primary and secondary group factor loading < gap_threshold
+    cross_loaders <- sum(apply(group_cols, 1, function(x) {
+      sorted <- sort(abs(x), decreasing = TRUE)
+      if (length(sorted) < 2) return(FALSE)
+      (sorted[1] - sorted[2]) < gap_threshold
+    }))
+    
+    n_items <- nrow(group_cols)
     
     tibble(
-      factor       = .y,
-      alpha        = a$total$raw_alpha,
-      ci_lower     = a$total$raw_alpha - 1.96 * a$total$ase,
-      ci_upper     = a$total$raw_alpha + 1.96 * a$total$ase,
-      n_items      = length(.x)
-    )
-  }) %>%
-  mutate(
-    interpretation = case_when(
-      alpha >= .90 ~ "Excellent",
-      alpha >= .80 ~ "Good",
-      alpha >= .70 ~ "Acceptable",
-      alpha >= .60 ~ "Questionable",
-      TRUE         ~ "Poor"
-    )
-  )
-```
-
-Factors with questionable alpha are flagged for item-level inspection, as targeted removal of weak items may bring consistency to an acceptable level. Factors with poor alpha (\< .60) are considered insufficiently coherent and candidates for removal entirely. At the upper end, factors with α \> .95 are inspected for item redundancy, as excessively high consistency can indicate that items are too similar to justify their inclusion as distinct indicators.
-
-```{r}
-cronbach_data %>%
-  knitr::kable(
-    digits  = 2,
-    col.names = c("Factor", "α", "95% CI Lower", "95% CI Upper", "Items", "Interpretation")
-  )
-```
-
-## Item-factor correlation
-
-For each item, we compute the *adjusted item-factor correlation*, the correlation between that item and the sum of all other items in the same factor, excluding itself. Items with an adjusted item-total correlation below .30 contribute little to what the factor is seeking to measure [@boateng2018]. Items with negative item-total correlations are of particular concern, as they suggest the item is measuring something in the opposite direction to the rest of the factor.
-
-```{r}
-poly_r_drop <- function(items_df) {
-  rho <- polychoric(items_df)$rho
-  n   <- ncol(rho)
-  
-  map_dfr(seq_len(n), function(i) {
-    others  <- setdiff(seq_len(n), i)
-    cov_ir  <- sum(rho[i, others])
-    var_rest <- sum(rho[others, others])
-    tibble(
-      item    = colnames(rho)[i],
-      it_corr = cov_ir / sqrt(var_rest)
+      model         = labels[[i]],
+      RMSEA         = round(om$schmid$RMSEA["RMSEA"], 3),
+      BIC           = round(om$schmid$BIC, 1),
+      omega_h       = round(om$omega_h, 3),
+      min_items     = min(items_per_factor),
+      max_items     = max(items_per_factor),
+      ratio         = round(max(items_per_factor) / min(items_per_factor), 1),
+      cross_loaders = cross_loaders,
+      cross_pct     = round(cross_loaders / n_items * 100, 1)
     )
   })
 }
-
-cols_tpsai %>%
-  split(sub("_.*", "", .)) %>%
-  map_dfr(~ {
-    efa_data %>%
-      select(all_of(.x)) %>%
-      poly_r_drop()
-  }, .id = "factor") %>%
-  mutate(item_num = sub(".*_", "", item)) %>%
-  ggplot(aes(x = factor, y = item_num, fill = it_corr)) +
-  geom_tile() +
-  geom_text(aes(label = round(it_corr, 2))) +
-    scale_fill_gradientn(
-      colours = c("#c94040", "#f0a875", "#efefef", "#82c882"),
-      values  = scales::rescale(c(-1, 0, 0.3, 1)),
-      limits  = c(-1, 1)
-  ) +
-  labs(x = "", y = "Item No.", fill = "r") +
-  theme_minimal(base_size = 12) +
-  theme(panel.grid = element_blank()) + 
-  scale_x_discrete(position = "top") + 
-  scale_y_discrete(limits = rev)
 ```
 
-## Cross-factor correlations
-
-### Item-factor correlations
-
-We repeat the above analysis of item-factor correlations but this time looking at items correlate with factors that they are not assigned to it.
+## Trust Substructure
 
 ```{r}
-#| fig-width: 7
-#| fig-height: 9
+omega_trust_2 <- omega(
+  m        = R_trust,
+  nfactors = 2,
+  n.obs    = nrow(efa_data),
+  fm       = "minres",
+  rotate   = "oblimin"
+)
 
-rho_full <- efa_data %>% 
-  select(all_of(cols_tpsai)) %>% 
-  polychoric() %>% 
-  .$rho
+omega_trust_3 <- omega(
+  m        = R_trust,
+  nfactors = 3,
+  n.obs    = nrow(efa_data),
+  fm       = "minres",
+  rotate   = "oblimin"
+)
 
-factors <- split(cols_tpsai, sub("_.*", "", cols_tpsai))
-
-imap_dfr(factors, function(focal_cols, focal_name) {
-  imap_dfr(factors[names(factors) != focal_name], function(other_cols, other_name) {
-    map_dfr(focal_cols, function(col) {
-      idx_item  <- which(rownames(rho_full) == col)
-      idx_other <- which(rownames(rho_full) %in% other_cols)
-      cov_ir    <- sum(rho_full[idx_item, idx_other])
-      var_rest  <- sum(rho_full[idx_other, idx_other])
-      tibble(item = col, other_factor = other_name, it_corr = cov_ir / sqrt(var_rest))
-    })
-  })
-}) %>% 
-  mutate(item = factor(item, levels = rev(cols_tpsai))) %>%
-  ggplot(aes(x = other_factor, y = item, fill = it_corr)) +
-  geom_tile() +
-  geom_text(aes(label = round(it_corr, 2)), size = 3) +
-  scale_fill_gradientn(
-    colours = c("#e8883a", "#efefef", "#c94040"),
-    values  = scales::rescale(c(-1, 0, 1)),
-    limits  = c(-1, 1)
-  ) +
-  labs(x = "", y = "", fill = "r") +
-  theme_minimal(base_size = 12) +
-  theme(panel.grid = element_blank()) +
-  scale_x_discrete(position = "top")
+omega_trust_4 <- omega(
+  m        = R_trust,
+  nfactors = 4,
+  n.obs    = nrow(efa_data),
+  fm       = "minres",
+  rotate   = "oblimin"
+)
 ```
 
-### Inter-item correlations
+```{r}
+compare_omega(list(omega_trust_2, omega_trust_3, omega_trust_4)) |> kable()
+```
 
-Lastly, we examine pairwise inter-item correlations. Items correlating above .7 suggest they may be measuring the same underlying concept. Where such pairs are identified, we consider whether the affected items should be merged, reassigned to a different factor, or removed.
+## Distrust Substructure
 
 ```{r}
-ii_cor_threshold <- 0.8
+omega_distrust_2 <- omega(
+  m        = R_distrust,
+  nfactors = 2,
+  n.obs    = nrow(efa_data),
+  fm       = "minres",
+  rotate   = "oblimin"
+)
 
-efa_data %>%
-  select(all_of(cols_tpsai)) %>%
-  polychoric() %>%.$rho %>%
-  as.data.frame() %>%
-  rownames_to_column("item1") %>%
-  pivot_longer(-item1, names_to = "item2", values_to = "r") %>%
-  filter(r > -1 & r < 1) %>%
-  filter(item1 < item2) %>% 
-  # filter(sub("_.*", "", item1) != sub("_.*", "", item2)) %>% # within-factor filter
-  filter(abs(r) > ii_cor_threshold) %>%
-  knitr::kable(digits = 2)
+omega_distrust_3 <- omega(
+  m        = R_distrust,
+  nfactors = 3,
+  n.obs    = nrow(efa_data),
+  fm       = "minres",
+  rotate   = "oblimin"
+)
+
+omega_distrust_4 <- omega(
+  m        = R_distrust,
+  nfactors = 4,
+  n.obs    = nrow(efa_data),
+  fm       = "minres",
+  rotate   = "oblimin"
+)
+```
+
+```{r}
+compare_omega(list(omega_distrust_2, omega_distrust_3, omega_distrust_4)) |> kable()
 ```
