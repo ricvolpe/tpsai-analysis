@@ -145,7 +145,7 @@ factors_as_items <- function(efa) {
 }
 ```
 
-# EFA: Top-Level Structure
+# Top-Level Structure
 
 Our theoretical assumption is that TPSai items are primarily organised into a top-level structure with the two factors of *Trust* and *Distrust.* Thus, the first step in our EFA is it explore the data we collected in its entirely, confirming whether the top-level Trust/Distrust factor structure exists or whether an entirely different emergent structure exists at the top level.
 
@@ -203,7 +203,13 @@ We use the MAP test and scree plot elbow as our primary criteria. If both agree,
 n_factors <- 2  # replace with chosen number after inspecting criteria
 ```
 
-Based on this, we arrive at a suggested number of factors and proceed as follows: - **n = 1**: suggests a unidimensional structure without clear separation between Trust and Distrust. We do not proceed with the Trust/Distrust model. - **n = 2**: suggests overlap with the Trust/Distrust model. We proceed to the EFA solution. - **n \> 2**: suggests an entirely new factor structure. We proceed to the EFA solution and investigate the emergent structure.
+Based on this, we arrive at a suggested number of factors and proceed as follows:
+
+- **n = 1**: suggests a unidimensional structure without clear separation between Trust and Distrust. We do not proceed with the Trust/Distrust model.
+
+- **n = 2**: suggests overlap with the Trust/Distrust model. We proceed to the EFA solution.
+
+- **n \> 2**: suggests an entirely new factor structure. We proceed to the EFA solution and investigate the emergent structure.
 
 ## EFA Solution
 
@@ -242,7 +248,7 @@ Where the factor structure maps onto a theoretical model, either the Trust/Distr
 
 In the pilot data, items 24, 27, 31, and 34 load primarily on the opposite factor to their theoretical assignment and are candidates for removal.
 
-#### Item Reduction
+### Item Reduction
 
 We inspect the loading pattern for simple structure — ideally each item loads strongly on one factor and weakly on all others [@buchanan2014]. We flag items for removal based on two empirical criteria:
 
