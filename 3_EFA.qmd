@@ -24,7 +24,7 @@ library(parameters)
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+-+Pilot.csv" #TODO: replace pilot data with EFA sample
+file_path <- "data/TPSai+–+Prolific_EFA_24+June+2026_16.04.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
@@ -32,7 +32,7 @@ raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
 ```
 
 ```{r}
-factors_map <- read_csv('surveys/pilot-test_qs.csv') #TODO: replace with EFA questions
+factors_map <- read_csv('surveys/efa_qs.csv')
 cols_tpsai <- sprintf("TPSAI_%d", seq_along(seq_along(1:nrow(factors_map))))
 ```
 
@@ -55,8 +55,7 @@ likert_levels <- c(
   "Neither agree nor disagree" = 4,
   "Somewhat agree"             = 5,
   "Agree"                      = 6,
-  "Strongly agree"             = 7,
-  "Don't know"                 = NA
+  "Strongly agree"             = 7
 )
 
 efa_data <- raw_data |>
@@ -70,15 +69,95 @@ names(efa_data) <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", names(efa_data))
 cols_tpsai <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", cols_tpsai)
 ```
 
+# Pre-scale questions
+
+**Number of responses**
+
 ```{r}
-# up-sample pilot data to N=300 with simulation
-# use only if need a bigger N to develop analysis
-# drop for EFA data
-source("scripts/simulate_data.R")
-efa_data <- simulate_data(efa_data, n=300)
+nrow(raw_data)
 ```
 
-**Exploratory Factor Analysis** (EFA) identifies hidden structures in a set of items. The core idea: if items correlate, they're probably measuring a common underlying thing — a latent factor. EFA finds the factors that can reproduce the observed correlations, retaining the solution that leaves the smallest residuals. Throughout our EFA, we use polychoric correlation matrix rather than the standard Pearson correlation matrix, as polychoric correlations are more appropriate for ordinal Likert data [@boateng2018].
+**Frequencies of use of generative AI for psychological support**
+
+```{r}
+raw_data |>
+  count(FREQ) |>
+  mutate(pct = round(n / sum(n) * 100, 1)) |>
+  arrange(desc(n)) |>
+  kable(col.names = c("Frequency", "N", "%"))
+```
+
+```{r}
+# frequency grouped in three categories
+freq_groups <- c(
+  "Never"                                    = "Never",
+  "About once a month"                       = "Rarely",
+  "About once a week to a few times a month" = "Rarely",
+  "Several times a week"                     = "Often",
+  "Daily or multiple times a day"            = "Often"
+)
+
+raw_data |>
+  mutate(FREQ_group = factor(freq_groups[FREQ], levels = c("Never", "Rarely", "Often"))) |>
+  count(FREQ_group) |>
+  mutate(pct = round(n / sum(n) * 100, 1)) |>
+  arrange(desc(n)) |> 
+  kable(col.names = c("Frequency", "N", "%"))
+```
+
+**Overall levels of trust and distrust**
+
+```{r}
+overall_levels <- c("Not at all", "Very little", "A little", "Moderately", 
+                    "Quite a bit", "Very much", "Completely")
+
+trust_recode <- setNames(overall_levels, rev(overall_levels))
+
+plot_data_div <- raw_data %>%
+  select(TR, DT) %>%
+  mutate(TR = unname(trust_recode[TR])) %>%
+  pivot_longer(cols = c(TR, DT), names_to = "measure", values_to = "response") %>%
+  mutate(
+    response = factor(response, levels = overall_levels),
+    measure  = factor(measure, levels = c("DT", "TR"),
+                      labels = c("Distrust", "Trust"))
+  ) %>%
+  count(measure, response, .drop = FALSE) %>%
+  group_by(measure) %>%
+  mutate(
+    pct = n / sum(n),
+    pct_signed = if_else(measure == "Distrust", -pct, pct)
+  ) %>%
+  ungroup()
+
+overalls_plot <- ggplot(plot_data_div, aes(x = pct_signed, y = response, fill = measure)) +
+  geom_col(width = 0.7) +
+  geom_vline(xintercept = 0, color = "grey40") +
+  scale_x_continuous(
+    labels = function(x) scales::percent(abs(x), accuracy = 1),
+    limits = c(-0.30, 0.30),
+    breaks = seq(-0.30, 0.30, 0.10)
+  ) +
+  scale_y_discrete(
+    limits = rev,
+    sec.axis = dup_axis(labels = overall_levels)
+  ) +
+  scale_fill_manual(values = c("Trust" = "#1f4e79", "Distrust" = "#d97706")) +
+  labs(x = NULL, y = NULL, fill = NULL) + 
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "top",
+    panel.grid.major.y = element_blank(),
+    axis.text.y.left   = element_text(color = "#d97706"),
+    axis.text.y.right  = element_text(color = "#1f4e79")
+  )
+
+overalls_plot
+```
+
+# **Exploratory Factor Analysis** (EFA)
+
+EFA identifies hidden structures in a set of items. The core idea: if items correlate, they're probably measuring a common underlying thing — a latent factor. EFA finds the factors that can reproduce the observed correlations, retaining the solution that leaves the smallest residuals. Throughout our EFA, we use polychoric correlation matrix rather than the standard Pearson correlation matrix, as polychoric correlations are more appropriate for ordinal Likert data [@boateng2018].
 
 ```{r}
 R <- polychoric(efa_data %>% select(all_of(cols_tpsai)))$rho
@@ -88,22 +167,34 @@ n_obs <- nrow(efa_data)
 **Helper functions**
 
 ```{r}
-plot_loadings <- function(loadings) {
+plot_loadings <- function(loadings, by_factor = FALSE) {
   loads <- loadings |>
     unclass() |>
     as.data.frame() |>
     rownames_to_column("item") |>
     pivot_longer(
-      cols = -c(item), 
-      names_to = "factor", 
-      values_to = "loading") |>
-    mutate(
-      item = factor(item),
-      label = as.character(round(loading, 2))
+      cols      = -item,
+      names_to  = "factor",
+      values_to = "loading"
     ) |>
     group_by(item) |>
-    mutate(bold = abs(loading) == max(abs(loading))) |>
+    mutate(
+      bold     = abs(loading) == max(abs(loading)),
+      dom_fac  = factor[which.max(abs(loading))],   # which factor it loads on most
+      dom_load = loading[which.max(abs(loading))],
+      label    = as.character(round(loading, 2))
+    ) |>
     ungroup()
+  
+  if (by_factor) {
+    item_order <- loads |>
+      distinct(item, dom_fac, dom_load) |>
+      arrange(dom_fac, desc(abs(dom_load))) |>     # group by factor, then by strength
+      pull(item)
+    loads <- mutate(loads, item = factor(item, levels = item_order))
+  } else {
+    loads <- mutate(loads, item = factor(item))    # original alphabetical behaviour
+  }
   
   ggplot(loads, aes(x = factor, y = item, fill = loading)) +
     geom_tile() +
@@ -196,7 +287,7 @@ vss(R, n.obs = nrow(efa_data), rotate = "oblimin", fm = "minres")
 
 **Decision logic**
 
-We use the MAP test and scree plot elbow as our primary criteria. If both agree, we adopt that solution. If they disagree, we examine parallel analysis and VSS complexity 2 as additional evidence. If no clear convergence emerges across all criteria, we adopt the solution suggested by MAP, which is generally considered the most accurate criterion for psychological scale data [@velicer1976; @zwick1986].
+We use the MAP test and scree plot elbow as our primary criteria. If both agree, we adopt that solution. If they disagree, we examine VSS complexity 2 as additional evidence. If no clear convergence emerges across three criteria, we would consider all criteria (MAP, scree, VSS 1 & 2, parallel analysis) as well possibly inspect the factor solutions for different number of factors and make a choice and justify based on the cumulated evidence.
 
 ```{r}
 # Set number of factors based on MAP and scree plot
@@ -301,16 +392,6 @@ loadings_df |>
 
 Items not flagged by any criterion are retained. Items flagged by one or more criteria are candidates for removal, subject to theoretical review. After removing flagged items, we update the item list and proceed to the substructure analysis.
 
-*In the pilot data, the following items may be dropped:*
-
-```{r}
-items_to_drop <- c(
-  "TPSAI_24", "TPSAI_27", "TPSAI_31", "TPSAI_34", # wrong factor
-  "TPSAI_23", "TPSAI_32" # low or cross loaders
-)
-cols_tpsai <- setdiff(cols_tpsai, items_to_drop)
-```
-
 # Substructures
 
 We proceed to substructure analysis only if the top-level EFA confirms a two-factor Trust/Distrust structure. We examine whether meaningful substructure exists within each factor using a **bifactor model**, which simultaneously estimates a general factor (shared by all items within the block) and specific group factors (capturing variance unique to subgroups of items).
@@ -318,8 +399,8 @@ We proceed to substructure analysis only if the top-level EFA confirms a two-fac
 We apply this separately to Trust and Distrust items, using the theoretical item assignments to define each block. After item reduction, `cols_tpsai` contains only surviving items, so the blocks are defined as:
 
 ```{r}
-trust_items    <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 1:19)]
-distrust_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 20:39)]
+trust_items    <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 1:16)]
+distrust_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 17:31)]
 
 R_trust    <- R[trust_items, trust_items]
 R_distrust <- R[distrust_items, distrust_items]
@@ -414,6 +495,10 @@ omega_trust_4 <- omega(
 compare_omega(list(omega_trust_2, omega_trust_3, omega_trust_4)) |> kable()
 ```
 
+```{r}
+plot_loadings(omega_trust_2$schmid$oblique)
+```
+
 ## Distrust Substructure
 
 ```{r}
@@ -444,4 +529,8 @@ omega_distrust_4 <- omega(
 
 ```{r}
 compare_omega(list(omega_distrust_2, omega_distrust_3, omega_distrust_4)) |> kable()
+```
+
+```{r}
+plot_loadings(omega_distrust_2$schmid$oblique)
 ```
