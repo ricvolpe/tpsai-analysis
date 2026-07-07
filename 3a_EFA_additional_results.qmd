@@ -1,0 +1,460 @@
+---
+title: "EFA Data - Additional Analysis"
+author: "Riccardo Volpato"
+format:
+  html:
+    embed-resources: true
+    toc: true
+editor: visual
+bibliography: references.bib
+execute:
+  message: false
+  warning: false
+---
+
+# Data Preparation
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(psych)
+library(knitr)
+```
+
+```{r}
+options(readr.show_col_types = FALSE)
+file_path <- "data/TPSai+–+Prolific_EFA_24+June+2026_16.04.csv"
+raw_data  <- read_csv(file_path, n_max = 2)
+colnames  <- names(raw_data)
+q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
+```
+
+```{r}
+factors_map <- read_csv('surveys/efa_qs.csv')
+cols_tpsai <- sprintf("TPSAI_%d", seq_along(seq_along(1:nrow(factors_map))))
+```
+
+```{r}
+# check that survey and factors correspond
+data.frame(
+  survey_col  = cols_tpsai,
+  survey_q    = unname(q_text[cols_tpsai]),
+  factor_item = factors_map$Item
+) %>%
+  mutate(match = survey_q == factor_item) |>
+  filter(!match)  %>% nrow() == 0
+```
+
+```{r}
+likert_levels <- c(
+  "Strongly disagree"          = 1,
+  "Disagree"                   = 2,
+  "Somewhat disagree"          = 3,
+  "Neither agree nor disagree" = 4,
+  "Somewhat agree"             = 5,
+  "Agree"                      = 6,
+  "Strongly agree"             = 7
+)
+
+efa_data <- raw_data |>
+  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x])) |>
+  select(all_of(cols_tpsai))
+```
+
+```{r}
+# Rename columns TPSAI_1 through TPSAI_9 to TPSAI_01 through TPSAI_09
+names(efa_data) <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", names(efa_data))
+cols_tpsai <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", cols_tpsai)
+```
+
+```{r}
+R <- polychoric(efa_data %>% select(all_of(cols_tpsai)))$rho
+n_obs <- nrow(efa_data)
+```
+
+# Factors
+
+The EFA suggested:
+
+- a unidimensional **Trust** factor comprising items TPSAI_1 to 16
+
+- a bi-dimensional **Distrust** factor that splits into
+
+  - a Risk Vigilance subfactor comprising items TPSAI_17 to 26
+
+  - a Relational Scepticism subfactor comprising items TPSAI_27 to 31
+
+```{r}
+trust_items    <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 1:16)]
+distrust_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 17:31)]
+risk_vigilance_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 17:26)]
+relationa_scepticism_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 27:31)]
+```
+
+```{r}
+R_trust    <- R[trust_items, trust_items]
+R_distrust <- R[distrust_items, distrust_items]
+R_risk_vigilance <- R[risk_vigilance_items, risk_vigilance_items]
+R_relationa_scepticism <- R[relationa_scepticism_items, relationa_scepticism_items]
+```
+
+# Factors Correlations
+
+```{r}
+factor_scores <- efa_data |>
+  mutate(
+    TR  = rowMeans(across(all_of(trust_items))),
+    DT  = rowMeans(across(all_of(distrust_items))),
+    DT_Risk = rowMeans(across(all_of(risk_vigilance_items))),
+    DT_Rel = rowMeans(across(all_of(relationa_scepticism_items)))
+  ) |> select(TR, DT, DT_Risk, DT_Rel) 
+
+factor_scores |> cor(use = "pairwise.complete.obs") |> 
+  kable(digits = 2)
+```
+
+Trust is moderately negatively correlated with all Distrust factors, while Risk Vigilance and Relational Scepticism are both very highly correlated with the overall Distrust (as expected, since they're subfactors), but they are also quite highly correlated with each other (0.71), suggesting they may not be as distinct from one another as a two-subfactor structure implies.
+
+# Item-Factor Correlations
+
+```{r}
+factor_items_list <- list(
+  TR = trust_items,
+  DT = distrust_items,
+  DT_RV = risk_vigilance_items,
+  DT_RS = relationa_scepticism_items
+)
+
+# Empty matrix to fill in: rows = items, columns = factors
+corrected_item_factor_cor <- matrix(
+  NA_real_,
+  nrow = length(cols_tpsai),
+  ncol = length(factor_items_list),
+  dimnames = list(cols_tpsai, names(factor_items_list))
+)
+
+# For each item, and each factor, compute the correlation
+for (item in cols_tpsai) {
+  for (score_col in names(factor_items_list)) {
+    items_in_factor <- factor_items_list[[score_col]]
+      other_items <- setdiff(items_in_factor, item)
+      score_excl_item <- rowMeans(efa_data |> select(all_of(other_items)))
+      corrected_item_factor_cor[item, score_col] <- cor(
+        efa_data[[item]], score_excl_item, use = "pairwise.complete.obs"
+      )
+  }
+}
+```
+
+```{r}
+#| fig-width: 5
+#| fig-height: 8
+corrected_item_factor_cor |>
+  as.data.frame() |>
+  rownames_to_column("item") |>
+  pivot_longer(-item, names_to = "factor", values_to = "r") |>
+  mutate(item = factor(item, levels = rev(cols_tpsai))) |>
+  ggplot(aes(x = factor, y = item, fill = r)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f", r)), size = 3) +
+  scale_fill_gradient2(
+    low = "#B2182B", mid = "white", high = "#2166AC",
+    midpoint = 0, limits = c(-1, 1)
+  ) +
+  labs(x = "", y = "", fill = "r") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0))
+```
+
+Overall, all items load strongly on their own factor and weakly/negatively on the others, with TPSAI_25, TPSAI_26 (and mild cross-loading on TPSAI_27) standing out as the weakest, least discriminating items.
+
+# Inter-Item Correlations
+
+```{r}
+r_min <- 0.75
+r_max <- 1
+r_mid <- 0.875
+
+pair_data <- R |>
+  as.data.frame() |>
+  rownames_to_column("item1") |>
+  pivot_longer(-item1, names_to = "item2", values_to = "r") |>
+  filter(item1 < item2) |>
+  mutate(r_highlight = if_else(abs(r) >= r_min & r < r_max, r, NA_real_))
+
+# Keep only items that appear in at least one highlighted pair
+items_used <- pair_data |>
+  filter(!is.na(r_highlight)) |>
+  select(item1, item2) |>
+  unlist() |>
+  unique()
+
+items_used <- cols_tpsai[cols_tpsai %in% items_used]  # preserve original order
+n_items    <- length(items_used)
+```
+
+```{r}
+#| fig-width: !expr max(6, n_items * 0.55)
+#| fig-height: !expr max(5, n_items * 0.5)
+
+full_pair_data <- R |>
+  as.data.frame() |>
+  rownames_to_column("item1") |>
+  pivot_longer(-item1, names_to = "item2", values_to = "r") |>
+  filter(item1 <= item2) |>
+  mutate(r_highlight = if_else(abs(r) >= r_min & r < r_max, r, NA_real_))
+
+full_pair_data |>
+  filter(item1 %in% items_used, item2 %in% items_used) |>
+  mutate(
+    item1 = factor(item1, levels = rev(items_used)),
+    item2 = factor(item2, levels = items_used)
+  ) |>
+  ggplot(aes(x = item2, y = item1, fill = r_highlight)) +
+  geom_tile(color = "white") +
+  geom_text(
+    aes(
+      label = if_else(!is.na(r_highlight), sprintf("%.2f", r_highlight), ""),
+      color = abs(r_highlight) > r_mid
+    ),
+    size = 4
+  ) +
+  scale_color_manual(values = c("black", "white"), guide = "none") +
+  scale_fill_gradientn(
+    colors = c("#F4A582", "#B2182B", "#67001F"),
+    values = scales::rescale(c(r_min, r_mid, r_max)),
+    limits = c(r_min, r_max),
+    na.value = "grey95"
+  ) +
+  labs(x = NULL, y = NULL, fill = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+```
+
+Surfacing pair of items for inter-correlations above 0.75 reveals a big interconnected block of trust items (01, 02, 06, 07, 12, and 13) where for example TPSAI_02 has a correlation above 0.75 with each of them (0.83 with 01, 0.8 with 06, 0.76 with 07, 0.8 with 12 and 0.76 with 13).
+
+# Single Variables
+
+**Overall levels of trust and distrust**
+
+```{r}
+overall_levels <- c("Not at all", "Very little", "A little", "Moderately", 
+                    "Quite a bit", "Very much", "Completely")
+
+trust_recode <- setNames(overall_levels, rev(overall_levels))
+
+plot_data_div <- raw_data %>%
+  select(TR, DT) %>%
+  mutate(TR = unname(trust_recode[TR])) %>%
+  pivot_longer(cols = c(TR, DT), names_to = "measure", values_to = "response") %>%
+  mutate(
+    response = factor(response, levels = overall_levels),
+    measure  = factor(measure, levels = c("DT", "TR"),
+                      labels = c("Distrust", "Trust"))
+  ) %>%
+  count(measure, response, .drop = FALSE) %>%
+  group_by(measure) %>%
+  mutate(
+    pct = n / sum(n),
+    pct_signed = if_else(measure == "Distrust", -pct, pct)
+  ) %>%
+  ungroup()
+
+overalls_plot <- ggplot(plot_data_div, aes(x = pct_signed, y = response, fill = measure)) +
+  geom_col(width = 0.7) +
+  geom_vline(xintercept = 0, color = "grey40") +
+  scale_x_continuous(
+    labels = function(x) scales::percent(abs(x), accuracy = 1),
+    limits = c(-0.30, 0.30),
+    breaks = seq(-0.30, 0.30, 0.10)
+  ) +
+  scale_y_discrete(
+    limits = rev,
+    sec.axis = dup_axis(labels = overall_levels)
+  ) +
+  scale_fill_manual(values = c("Trust" = "#1f4e79", "Distrust" = "#d97706")) +
+  labs(x = NULL, y = NULL, fill = NULL) + 
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "top",
+    panel.grid.major.y = element_blank(),
+    axis.text.y.left   = element_text(color = "#d97706"),
+    axis.text.y.right  = element_text(color = "#1f4e79")
+  )
+
+overalls_plot
+```
+
+Both distributions show most respondents clustering in the middle-to-moderate categories rather than extremes but Trust responses skewing slightly more toward the negative end (e.g., 20% "Quite a bit," only 15% "Not at all") while Distrust responses skew slightly toward the lower end (peaking at "Very little"/"A little" around 19-20% each), suggesting a generally cautiously positive overall stance rather than strong polarization in either direction.
+
+```{r}
+overall_levels <- c(
+  "Not at all"  = 1, "Very little" = 2, "A little"    = 3,
+  "Moderately"  = 4, "Quite a bit" = 5, "Very much"   = 6,
+  "Completely"  = 7
+)
+
+freq_levels <- c(
+  "Never",
+  "About once a month",
+  "About once a week to a few times a month",
+  "Several times a week",
+  "Daily or multiple times a day"
+)
+
+validity_data <- efa_data |>
+  mutate(
+    trust     = rowMeans(across(all_of(trust_items))),
+    distrust  = rowMeans(across(all_of(distrust_items))),
+    risk_vig  = rowMeans(across(all_of(risk_vigilance_items))),
+    rel_scept = rowMeans(across(all_of(relationa_scepticism_items)))
+  ) |>
+  select(trust, distrust, risk_vig, rel_scept) |>
+  bind_cols(
+    raw_data |>
+      select(FREQ, TR, DT) |>
+      mutate(
+        FREQ = factor(
+          FREQ,
+          levels = freq_levels,
+          ordered = TRUE
+        ),
+        FREQ = as.integer(FREQ),
+        TR   = overall_levels[TR],
+        DT   = overall_levels[DT]
+      )
+  )
+
+predictive_validity <- cor(validity_data)
+
+predictive_validity[
+  c("trust", "distrust", "risk_vig", "rel_scept"),
+  c("FREQ", "TR", "DT")
+] |> kable(digits = 2)
+```
+
+All four scales show good predictive/convergent validity — trust correlates strongly with its single-item counterpart (TR, 0.78) and moderately with frequency of use (0.56), while distrust and its subfactors show the mirrored pattern with DT (0.53–0.60) and negative correlations with TR and FREQ, confirming the scales behave as theoretically expected.
+
+```{r}
+validity_data |>
+  mutate(FREQ = factor(FREQ, levels = 1:5, labels = freq_levels)) |>
+  pivot_longer(cols = c(trust, distrust, risk_vig, rel_scept), names_to = "scale", values_to = "score") |>
+  group_by(FREQ, scale) |>
+  summarise(mean_score = mean(score), .groups = "drop") |>
+  ggplot(aes(x = FREQ, y = mean_score, color = scale, group = scale)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(x = "", y = "", color = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+Trust rises sharply and monotonically with frequency of use while distrust and its subfactors decline, exactly as expected.
+
+Once usage becomes frequent, all four scales converge to a similar mid-range value (\~5), which could mean frequent users hold more mixed/nuanced views (plausible), or it could mean the scales lose discriminating power at that end of the usage spectrum (worth checking variance/spread within that group, not just the mean).
+
+# Cluster analysis
+
+```{r}
+X <- efa_data |> select(all_of(cols_tpsai)) |> as.matrix()
+rownames(X) <- seq_len(nrow(X))
+
+d  <- dist(X, method = "euclidean")
+hc <- hclust(d, method = "ward.D2")
+
+cluster_assignments <- tibble(
+  id = seq_len(nrow(X)),
+  k2 = cutree(hc, k = 2),
+  k3 = cutree(hc, k = 3),
+  k4 = cutree(hc, k = 4)
+)
+```
+
+```{r}
+plot(hc, labels = FALSE, hang = -1,
+     main = "Hierarchical clustering of respondents (Ward, Euclidean)",
+     xlab = "", sub = "")
+```
+
+```{r}
+# Relabel clusters by trust rank, so cluster 1 = lowest trust, cluster k = highest
+scores <- validity_data |> mutate(id = row_number())
+
+relabel_by_trust <- function(k_col) {
+  ranks <- scores |>
+    inner_join(cluster_assignments |> select(id, all_of(k_col)), by = "id") |>
+    group_by(cluster_num = .data[[k_col]]) |>
+    summarise(trust_mean = mean(trust), .groups = "drop") |>
+    arrange(trust_mean) |>
+    mutate(new_num = row_number()) |>
+    select(cluster_num, new_num)
+  cluster_assignments[[k_col]] <<- ranks$new_num[match(cluster_assignments[[k_col]], ranks$cluster_num)]
+}
+
+walk(c("k2", "k3", "k4"), relabel_by_trust)
+```
+
+```{r}
+profiles <- scores |> inner_join(cluster_assignments, by = "id")
+
+summarise_k <- function(k) {
+  profiles |>
+    group_by(Cluster = .data[[k]]) |>
+    summarise(
+      N                      = n(),
+      Frequency              = round(mean(FREQ), 2),
+      `Trust Item`           = round(mean(TR), 2),
+      `Distrust Item`        = round(mean(DT), 2),
+      Trust                  = round(mean(trust), 2),
+      Distrust               = round(mean(distrust), 2),
+      `Risk Vigilance`       = round(mean(risk_vig), 2),
+      `Relational Scepticism` = round(mean(rel_scept), 2),
+      .groups = "drop"
+    ) |>
+    arrange(Cluster)
+}
+```
+
+```{r}
+plot_cluster_profile <- function(k_col) {
+  plot_data <- profiles |>
+    rename(cluster = all_of(k_col)) |>
+    select(cluster, trust, risk_vig, rel_scept) |>
+    pivot_longer(-cluster, names_to = "scale", values_to = "score") |>
+    group_by(cluster, scale) |>
+    summarise(mean = mean(score), se = sd(score) / sqrt(n()), .groups = "drop") |>
+    mutate(cluster = factor(cluster))
+  
+  ggplot(plot_data, aes(x = scale, y = mean, color = cluster, group = cluster)) +
+    geom_ribbon(aes(ymin = mean - se, ymax = mean + se, fill = cluster), alpha = 0.15, color = NA) +
+    geom_line() +
+    geom_point(size = 2) +
+    scale_color_brewer(palette = "RdYlBu") +
+    scale_fill_brewer(palette = "RdYlBu") +
+    scale_y_continuous(limits = c(1, 7)) +
+    labs(x = NULL, y = "Mean scale score", color = "Cluster", fill = "Cluster") +
+    theme_minimal(base_size = 11)
+}
+```
+
+**K=2**
+
+```{r}
+summarise_k("k2") |> kable(digits = 2)
+```
+
+**K=3**
+
+```{r}
+summarise_k("k3") |> kable(digits = 2)
+```
+
+**K=4**
+
+```{r}
+summarise_k("k4") |> kable(digits = 2)
+```
+
+```{r, fig.width=5, fig.height=4}
+plot_cluster_profile("k4")
+```
