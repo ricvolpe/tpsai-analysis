@@ -101,7 +101,6 @@ raw_data |>
   kable(col.names = c("Frequency", "N", "%"))
 ```
 
-
 # Exploratory Factor Analysis (EFA)
 
 EFA identifies hidden structures in a set of items. The core idea: if items correlate, they're probably measuring a common underlying thing — a latent factor. EFA finds the factors that can reproduce the observed correlations, retaining the solution that leaves the smallest residuals. Throughout our EFA, we use polychoric correlation matrix rather than the standard Pearson correlation matrix, as polychoric correlations are more appropriate for ordinal Likert data [@boateng2018].
@@ -527,7 +526,16 @@ plot_loadings(efa_3f$loadings)
 
 The third factor (TPSAI_27-31) is actually one of the two subfactors of the Distrust factor, indicating these five items this factor may actually sit somewhere a Distrust subfactor and a wholly independent third factor.
 
-# Decision & Interpretation
+Importantly, if we explore EFA with a 4-factors structure
+
+```{r}
+#| fig-width: 4
+#| fig-height: 6
+efa_3f <- fa(r = R, nfactors = 4, n.obs = nrow(efa_data), fm = "minres", rotate = "oblimin")
+plot_loadings(efa_3f$loadings)
+```
+
+The next separation does not divide trust into two subfactors, as theoretically plausible, but rather creating a spurious subfactor with only one item. This further shows that there is almost no evidence of separation within the trust factor.
 
 Taken together, all the EFA evidence suggests that the data have the following underlying structure
 
@@ -539,14 +547,14 @@ Taken together, all the EFA evidence suggests that the data have the following u
 
   - a Relational Scepticism subfactor comprising items TPSAI_27 to 31
 
-An important note is that the two distrust subfactors seem somewhat independent which means the data could equally be modelled using a top-level three-factors structure (Trust, Risk Vigilance, and Relational Scepticism). However, given the simplicity, clarity, and theoretical support for a Trust/Distrust model, we choose to retain the Trust/Distrust model with two Distrust subfactors (Risk Vigilance and Relational Scepticism) which essentially returns the same scores of a 3-factors model with an additional Distrust score (being the aggregate of Risk Vigilance and Relational Scepticism).
-
 ```{r}
 trust_items    <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 1:16)]
 distrust_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 17:31)]
 risk_vigilance_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 17:26)]
 relationa_scepticism_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 27:31)]
 ```
+
+# Reliability
 
 ## Cronbach Alpha
 
@@ -563,5 +571,5 @@ tibble::tibble(
             alpha_distrust$total$raw_alpha,
             alpha_vigilance$total$raw_alpha,
             alpha_skepticism$total$raw_alpha)
-) |> kable()
+) |> kable(digits = 3)
 ```
