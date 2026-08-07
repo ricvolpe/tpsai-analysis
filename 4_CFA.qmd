@@ -14,93 +14,473 @@ execute:
 
 ```{r, echo=FALSE}
 library(tidyverse)
-library(psych)
-library(knitr)
-library(lavaan)
 library(semTools)
-
-seed <- 2641388
-set.seed(seed) # makes sure random numbers are reproducible
+library(knitr)
 ```
 
 ```{r}
 options(readr.show_col_types = FALSE)
-
-source("scripts/simulate_data.R")
-
-cfa_data <- simulate_data(
-  sample_path = "data/pilot/TPSai_29+March+2026_15.56.csv", 
-  factors_path =  "data/factors.csv",
-  seed = seed,
-  n = 300)
-
-cols_tpsai <- names(cfa_data)[c(2:41)]
-```
-
-Confirmatory factor analysis (CFA) tests whether a hypothesised factor structure — derived from theory and/or EFA results — replicates in the data. Unlike EFA, which lets the data reveal structure freely, CFA is a hypothesis-testing procedure: we specify in advance which items load onto which factors and which cross-loadings are constrained to zero, then evaluate how well that model fits the observed covariance matrix.
-
-We use the **WLSMV** (weighted least squares, mean- and variance-adjusted) estimator throughout. WLSMV is the recommended estimator for ordinal Likert data because it treats items as ordered-categorical rather than continuous, avoiding the underestimation of factor loadings and the distorted fit indices that arise when standard maximum-likelihood estimation is applied to non-normal ordinal responses.
-
-# Build Models
-
-```{r}
-model_1F <- paste("MR1 =~", paste(cols_tpsai, collapse = " + "))
-
-model_EFA <- '
-MR2 =~ COMP_01 + COMP_02 + COMP_03 + CRIT_02 + HUMN_01 + HUMN_04 + PERS_01 + PERS_03 + PERS_04 + RISK_01 + SAFE_01 + SAFE_03
-MR1 =~ CORP_01 + CORP_03 + CORP_05 + CRIT_03 + CRIT_04 + HUMN_03 + HUMN_05 + RISK_02 + RISK_04 + SAFE_04
-MR3 =~ CRIT_01 + CRIT_05 + EMOT_01 + EMOT_02 + EMOT_05 + PERS_02 + PERS_05 + SAFE_02
-MR4 =~ COMP_05 + CORP_02 + EMOT_03 + RISK_03
-MR5 =~ COMP_04 + CORP_04 + EMOT_04 + HUMN_02 + RISK_05 + SAFE_05
-'
+file_path <- "data/TPSai+–+Prolific_EFA_24+June+2026_16.04.csv" #TODO: switch to CFA data
+raw_data  <- read_csv(file_path, n_max = 2)
+colnames  <- names(raw_data)
+q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
 ```
 
 ```{r}
-cfa_model_1F <- cfa(model_1F, cfa_data, estimator = "WLSMV", ordered = TRUE)
-
-cfa_model_EFA <- cfa(model_EFA, cfa_data, estimator = "WLSMV", ordered = TRUE)
+questions_map <- read_csv("surveys/efa_qs.csv") #TODO: switch to CFA questions
+cols_tpsai_raw  <- sprintf("TPSAI_%d", seq_len(nrow(questions_map)))
 ```
 
-# Model Fit
-
-We evaluate fit using the indices recommended by @boateng2018 and @briones2026. No single index is sufficient; good fit requires convergent evidence across indices.
-
-| Index | Good fit | Acceptable | Poor fit |
-|-------|----------|------------|----------|
-| CFI   | ≥ .95    | .90–.94    | \< .90   |
-| TLI   | ≥ .95    | .90–.94    | \< .90   |
-| RMSEA | ≤ .06    | .06–.08    | \> .10   |
-| SRMR  | ≤ .06    | .06–.08    | \> .08   |
+```{r}
+# check that survey and factors correspond
+data.frame(
+  survey_col  = cols_tpsai_raw,
+  survey_q    = unname(q_text[cols_tpsai_raw]),
+  factor_item = questions_map$Item
+) %>%
+  mutate(match = survey_q == factor_item) |>
+  filter(!match) %>% nrow() == 0
+```
 
 ```{r}
-extract_fit <- function(fit, model_label) {
-  fi <- fitMeasures(fit, c("chisq", "df", "pvalue",
-                            "cfi", "tli",
-                            "rmsea", "rmsea.ci.lower", "rmsea.ci.upper",
-                            "srmr"))
+data.frame(
+  id  = cols_tpsai_raw,
+  item = questions_map$Item
+) |> kable()
+```
+
+**Demographic data**
+
+```{r}
+demog <- list.files("data/demog", full.names = TRUE) |>
+  lapply(read_csv, show_col_types = FALSE) |>
+  bind_rows() |>
+  rename(PROLIFIC_PID = `Participant id`)
+
+raw_data <- raw_data |>
+  left_join(demog, by = "PROLIFIC_PID") |>
+  filter(`Status.y` == "APPROVED")
+```
+
+**Number of responses**
+
+```{r}
+nrow(raw_data)
+```
+
+**Frequencies of use of generative AI for psychological support**
+
+```{r}
+freq_groups <- c(
+  "Never"                                    = "Never",
+  "About once a month"                       = "Rarely",
+  "About once a week to a few times a month" = "Rarely",
+  "Several times a week"                     = "Often",
+  "Daily or multiple times a day"            = "Often"
+)
+
+raw_data <- raw_data |>
+  mutate(FREQ_group = factor(freq_groups[FREQ], levels = c("Never", "Rarely", "Often")))
+
+raw_data |>
+  count(FREQ_group) |>
+  mutate(pct = round(n / sum(n) * 100, 1)) |>
+  arrange(desc(n)) |>
+  kable(col.names = c("Frequency", "N", "%"))
+```
+
+```{r}
+likert_levels <- c(
+  "Strongly disagree"          = 1,
+  "Disagree"                   = 2,
+  "Somewhat disagree"          = 3,
+  "Neither agree nor disagree" = 4,
+  "Somewhat agree"             = 5,
+  "Agree"                      = 6,
+  "Strongly agree"             = 7
+)
+
+cfa_data <- raw_data |>
+  mutate(across(all_of(cols_tpsai_raw), ~ likert_levels[.x])) |>
+  select(all_of(cols_tpsai_raw))
+
+names(cfa_data) <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", names(cfa_data))
+cols_tpsai      <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", cols_tpsai_raw)
+```
+
+# Models fitting
+
+*Which structure (i.e. set of factors) best fit our data?*
+
+EFA suggested items first clearly divide between Trust and Distrust items and then Distrust items divide into Risk Vigilance and Relational Scepticism items. During EFA, Trust showed some indications of dividing into Competence and Affective Trust but the separation was not clean. However, since our EFA sample we have replaced three trust-coded items to attempt at producing a clearer competence / affective trust separation. Thus given the results of our EFA we evaluate the following models
+
+1.  Unidimensional
+2.  Trust / Distrust
+3.  Trust/ Risk Vigilance/ Relational Scepticism
+4.  Competence / Affective Trust / Risk Vigilance / Relational Scepticism.
+
+We also decided to test an additional model, that is a bi-factor model with a single general factor loading on all items, plus a specific factor loading on distrust items, constrained orthogonal to the general factor (which we call `m1b`). This model tests whether the items hypothesised to measure Distrust require covariance beyond that accounted for by a single general dimension. If `m1b` fits comparably to `m2`, the two-factor structure cannot be distinguished from a single bipolar dimension. Because item content (trust and distrust) and item framing (motivation-worded vs concern-worded) are aligned in this set, the specific factor is not identified with respect to which of these it reflects, and we report it without substantive interpretation.
+
+```{r}
+comp_items    <- sprintf("TPSAI_%02d", c(1:9))
+affect_items  <- sprintf("TPSAI_%02d", c(10:16)) #TODO: adjust to CFA data 10:15
+rv_items      <- sprintf("TPSAI_%02d", 17:26) #TODO: adjust to CFA data 16:25
+rs_items      <- sprintf("TPSAI_%02d", 27:31) #TODO: adjust to CFA data 26:30
+
+item_map <- bind_rows(
+  tibble(item = comp_items,   top = "Trust",    sub = "Competence"),
+  tibble(item = affect_items, top = "Trust",    sub = "Affective"),
+  tibble(item = rv_items,     top = "Distrust", sub = "RiskVigilance"),
+  tibble(item = rs_items,     top = "Distrust", sub = "RelationalScepticism")
+) |>
+  arrange(item)
+
+item_map <- item_map |>
+  mutate(sub3 = if_else(top == "Trust", "TRUST", sub))
+
+trust_items    <- item_map |> filter(top == "Trust")    |> pull(item)
+distrust_items <- item_map |> filter(top == "Distrust") |> pull(item)
+
+item_map |> count(top, sub) |> kable(col.names = c("Top-level", "Subfactor", "Items"))
+```
+
+```{r}
+# unidimensional syntax: a single latent named `name` over all items in `map`
+syntax_1f <- function(map, name) {
+  paste0(name, " =~ ", paste(map$item, collapse = " + "))
+}
+
+# correlated-factors syntax: one latent per level of `col`
+syntax_cf <- function(map, col) {
+  map |>
+    filter(!is.na(.data[[col]])) |>
+    group_by(f = .data[[col]]) |>
+    summarise(line = paste0(first(f), " =~ ", paste(item, collapse = " + ")),
+              .groups = "drop") |>
+    pull(line) |>
+    paste(collapse = "\n")
+}
+```
+
+```{r}
+m1_syntax <- syntax_1f(item_map, "uni")
+m2_syntax <- syntax_cf(item_map, "top")
+m3_syntax <- syntax_cf(item_map, "sub3")
+m4_syntax <- syntax_cf(item_map, "sub")
+```
+
+```{r}
+m1b_syntax <- paste0(
+  "general =~ ", paste(item_map$item, collapse = " + "), "\n",
+  "specific  =~ ", paste(distrust_items, collapse = " + "), "\n",
+  "specific ~~ 0*general"
+)
+```
+
+Items are seven-point Likert responses, so we treat them as ordered categorical and estimate with **WLSMV** (diagonally weighted least squares with mean- and variance-adjusted test statistic and robust standard errors). This is polychoric CFA: lavaan estimates item thresholds and the polychoric correlation matrix (the same matrix used throughout the EFA) and fits the model to it, with standard errors and the test statistic derived from the asymptotic covariance matrix of the polychoric estimates rather than assuming multivariate normality of the observed responses.
+
+```{r}
+fit_cfa <- function(synthax) {
+  cfa(synthax, data = cfa_data, ordered = cols_tpsai, estimator = "WLSMV")
+}
+```
+
+```{r}
+m1 <- fit_cfa(m1_syntax)
+m1b <- fit_cfa(m1b_syntax)
+m2 <- fit_cfa(m2_syntax)
+m3 <- fit_cfa(m3_syntax)
+m4 <- fit_cfa(m4_syntax)
+```
+
+# Fit Criteria
+
+We evaluate models against conventional cut-off thresholds [@boateng2018]:
+
+- **CFI / TLI** ≥ 0.9
+- **RMSEA** ≤ 0.08
+- **SRMR** ≤ 0.08
+
+$\chi^2$ is reported for completeness only, as it is effectively guaranteed to be significant at this sample size and model complexity.
+
+```{r}
+fit_table <- function(fits, labels = names(fits)) {
+  map_dfr(seq_along(fits), function(i) {
+    fm  <- fitMeasures(fits[[i]])
+    
+    get <- function(nm) if (nm %in% names(fm)) unname(fm[[nm]]) else NA_real_
+    
+    # robust indices exist under WLSMV/MLR; fall back to scaled, then naive
+    pick <- function(base) {
+      for (suffix in c(".robust", ".scaled", "")) {
+        v <- get(paste0(base, suffix))
+        if (!is.na(v)) return(v)
+      }
+      NA_real_
+    }
+    
+    tibble(
+      model    = labels[[i]],
+      chisq    = round(pick("chisq"), 1),
+      df       = pick("df"),
+      CFI      = round(pick("cfi"),   3),
+      TLI      = round(pick("tli"),   3),
+      RMSEA    = round(pick("rmsea"), 3),
+      RMSEA_CI = sprintf("[%.3f, %.3f]",
+                         pick("rmsea.ci.lower"), pick("rmsea.ci.upper")),
+      SRMR     = round(pick("srmr"),  3)
+    )
+  })
+}
+```
+
+## Model Comparison
+
+We compare models differing only in factor (e.g. M2 vs. M3) with a chi-square difference test, `lavTestLRT()`, which we allow select the appropriate correction method and record which method was applied. Before any comparison is made, both models must be admissible: converged, passing `lavaan`'s post-fitting checks, with no Heywood cases, negative residual variances, or standardised loadings outside the unit interval. A model that fails these checks is not carried forward.
+
+We prefer the simpler model in each pair unless:
+
+1.  the scaled difference test is significant at $\alpha = .05$; and
+2.  the factors newly separated by the more complex model are substantively distinct, defined as $\varphi < .85$ with the upper bound of its 95% confidence interval below $.90$, where $\varphi$ is the standardised correlation between the two latent factors.
+3.  The CFI of the more complex model is higher by at least $.01$ [@cheung2002].
+
+We use a combination of criteria since they each have pitfalls individually. The difference test alone is not sufficient since highly powered samples often report significant results expected even where the added factor buys little. The second criterion asks directly whether the two factors the model separates are empirically distinguishable, rather than merely statistically separable. Lastly, the $\Delta$CFI threshold derived for measurement invariance testing [@cheung2002] so it cannot be used alone but in conjunction with our first two criteria it confirms that the more complex model has substantial better fit.
+
+Importantly, we note that our model selection is not an absolute decision void of interpretation. Should the result return models that have small differences in fit criteria and meet only 1-2 out of our 3 comparison rules, we may select 2 different models for scale evaluation and test whether the more complex ones provide additional factors that uniquely correlate with other interesting variables (e.g. frequency of use) or instruments.
+
+```{r}
+check_admissible <- function(fit, label = "model") {
+  converged <- lavInspect(fit, "converged")
+
+  post_ok <- tryCatch(
+    suppressWarnings(lavInspect(fit, "post.check")),
+    error = function(e) FALSE
+  )
+
+  std <- standardizedSolution(fit, type = "std.all")
+  loadings <- std[std$op == "=~", "est.std"]
+  resid    <- std[std$op == "~~" & std$lhs == std$rhs, "est.std"]
+
+  heywood     <- any(abs(loadings) > 1, na.rm = TRUE)
+  neg_var     <- any(resid < 0, na.rm = TRUE)
+
   tibble(
-    Model    = model_label,
-    `χ²`    = round(fi["chisq"], 2),
-    df       = fi["df"],
-    # p        = round(fi["pvalue"], 3),
-    CFI      = round(fi["cfi"],   3),
-    TLI      = round(fi["tli"],   3),
-    RMSEA    = round(fi["rmsea"], 3),
-    `90% CI` = paste0("[", round(fi["rmsea.ci.lower"], 3),
-                      ", ", round(fi["rmsea.ci.upper"], 3), "]"),
-    SRMR     = round(fi["srmr"],  3)
+    model       = label,
+    converged   = converged,
+    post_check  = isTRUE(post_ok),
+    no_heywood  = !heywood,
+    no_neg_var  = !neg_var,
+    admissible  = converged && isTRUE(post_ok) && !heywood && !neg_var
   )
 }
 
-bind_rows(
-  extract_fit(cfa_model_1F, "1F"),
-  extract_fit(cfa_model_EFA, "EFA"),
-) %>%
+factor_cor <- function(fit, f1, f2) {
+  std <- standardizedSolution(fit, type = "std.all")
+
+  row <- std[std$op == "~~" & std$lhs != std$rhs &
+             ((std$lhs == f1 & std$rhs == f2) |
+              (std$lhs == f2 & std$rhs == f1)), ]
+
+  if (nrow(row) != 1) {
+    stop(sprintf("Could not uniquely locate correlation between '%s' and '%s'.",
+                 f1, f2))
+  }
+
+  if (!all(c("ci.lower", "ci.upper") %in% names(row)) ||
+      any(is.na(c(row$ci.lower, row$ci.upper)))) {
+    warning("Standardised CIs unavailable; bootstrap required.")
+  }
+
+  tibble(
+    factor_1 = f1,
+    factor_2 = f2,
+    phi      = round(row$est.std,  3),
+    ci_lower = round(row$ci.lower, 3),
+    ci_upper = round(row$ci.upper, 3)
+  )
+}
+
+lrt_compare <- function(constrained, free) {
+  lrt <- lavTestLRT(constrained, free)
+
+  list(
+    chisq_diff = unname(lrt[2, "Chisq diff"]),
+    df_diff    = unname(lrt[2, "Df diff"]),
+    p_value    = unname(lrt[2, "Pr(>Chisq)"]),
+    method     = paste(attr(lrt, "heading"), collapse = " ")
+  )
+}
+```
+
+```{r}
+compare_adjacent <- function(constrained, free, labels, phi_f1, phi_f2) {
+  
+  adm <- bind_rows(
+    check_admissible(constrained, labels[1]),
+    check_admissible(free,        labels[2])
+  )
+  
+  if (!all(adm$admissible)) {
+    return(tibble(
+      comparison = paste(labels, collapse = " vs "),
+      selected   = NA_character_,
+      note       = paste("Inadmissible:",
+                         paste(adm$model[!adm$admissible], collapse = ", "))
+    ))
+  }
+  
+  lrt <- lrt_compare(constrained, free)
+  phi <- factor_cor(free, phi_f1, phi_f2)
+  ft  <- fit_table(list(constrained, free), labels)
+  
+  phi_est <- phi[["phi"]]
+  phi_lo  <- phi[["ci_lower"]]
+  phi_hi  <- phi[["ci_upper"]]
+  
+  tibble(
+    comparison   = paste(labels, collapse = " vs "),
+    chisq_diff   = round(lrt$chisq_diff, 2),
+    df_diff      = lrt$df_diff,
+    p_value      = signif(lrt$p_value, 3),
+    phi          = phi_est,
+    phi_ci       = sprintf("[%.3f, %.3f]", phi_lo, phi_hi),
+    dCFI         = round(ft$CFI[2] - ft$CFI[1], 3),   # complex - simple
+  )
+}
+```
+
+# Results
+
+```{r}
+fit_table(list(m1, m1b, m2, m3, m4), c("M1", "M1b", "M2", "M3", "M4")) |> kable()
+```
+
+```{r}
+comparisons <- bind_rows(
+  compare_adjacent(m1, m2, c("M1", "M2"), "Trust", "Distrust"),
+  compare_adjacent(m2, m3, c("M2", "M3"), "RiskVigilance", "RelationalScepticism"),
+  compare_adjacent(m3, m4, c("M3", "M4"), "Competence", "Affective")
+)
+
+comparisons |>
+  select(comparison, chisq_diff, df_diff, p_value, phi, phi_ci, dCFI) |>
+  kable(
+    col.names = c("Comparison", "Δχ²", "Δdf", "p", "φ", "φ 95% CI", "ΔCFI"),
+    digits = 3
+  )
+```
+
+```{r}
+# Record which difference-test method lavaan applied, for the write-up.
+lrt_compare(m1, m2)$method
+```
+
+## M2 versus M1b
+
+M2 is nested within M1b: constraining the specific-factor loadings to be proportional to the general-factor loadings on the distrust items, while freeing the trust–distrust correlation, reproduces M2's implied covariance structure. This yields fifteen constraints less one freed parameter, and we verify that the observed difference in degrees of freedom equals fourteen before interpreting the test.
+
+The two models represent competing accounts of the same covariance. M2 treats trust and distrust as two correlated constructs. M1b treats them as a single bipolar dimension, with the distrust items sharing additional covariance beyond what that dimension explains. Because item content and item framing are aligned in this item set — the trust items are uniformly motivation-worded and the distrust items uniformly concern-worded — the specific factor is not identified with respect to which of these it reflects. It may represent distrust as a distinct construct, or a systematic difference in how respondents answer differently framed statements. No model fitted to these items alone can separate the two, and we therefore report the specific factor without substantive interpretation.
+
+We do not use this comparison to select between structures. If M1b fits comparably to or better than M2, this establishes that the two-factor structure is not identified by fit alone, and the Trust/Distrust distinction rests on theoretical grounds together with external evidence — specifically, whether Trust and Distrust show differential rather than mirror-image relations with the comparison instruments. That evidence is reported in the scale evaluation. If M1b fits appreciably worse than M2, the single-dimension account is disfavoured and the two-factor structure is supported on fit as well.
+
+```{r}
+m1b_vs_m2 <- local({
+  
+  adm <- bind_rows(
+    check_admissible(m2,  "M2"),
+    check_admissible(m1b, "M1b")
+  )
+  
+  stopifnot(all(adm$admissible))
+  
+  lrt <- lrt_compare(m2, m1b)
+  ft  <- fit_table(list(m2, m1b), c("M2", "M1b"))
+  
+  tibble(
+    comparison = "M2 vs M1b",
+    chisq_diff = round(lrt$chisq_diff, 2),
+    df_diff    = lrt$df_diff,
+    p_value    = signif(lrt$p_value, 3),
+    dCFI       = round(ft$CFI[2]   - ft$CFI[1],   3),   # M1b - M2
+    dTLI       = round(ft$TLI[2]   - ft$TLI[1],   3),
+    dRMSEA     = round(ft$RMSEA[2] - ft$RMSEA[1], 3),
+    dSRMR      = round(ft$SRMR[2]  - ft$SRMR[1],  3)
+  )
+})
+
+m1b_vs_m2 |>
+  kable(col.names = c("Comparison", "Δχ²", "Δdf", "p",
+                      "ΔCFI", "ΔTLI", "ΔRMSEA", "ΔSRMR"))
+```
+
+The general factor is expected to be bipolar: positive loadings on trust \# items, negative on distrust items. Confirming this makes explicit that M1b \# represents Trust and Distrust as one dimension rather than two.
+
+```{r}
+standardizedSolution(m1b, type = "std.all") |>
+  subset(op == "=~" & lhs == "general") |>
+  merge(item_map[, c("item", "top")], by.x = "rhs", by.y = "item") |>
+  transform(sign = ifelse(est.std < 0, "negative", "positive")) |>
+  with(table(top, sign)) |>
   kable()
 ```
 
-We can also compare models with a scaled chi-square difference test. We prefer more complex models when **both** criteria are met: the difference test is significant (p \< .05) and ΔCFI \> .01. Using both criteria guards against retaining a complex model purely on the basis of a statistically significant but practically trivial improvement in fit.
+# Reliability
+
+Reliability metrics evaluate the internal consistency of the latent factors based on the estimated CFA model parameters. We compute both Cronbach's Alpha (α) and McDonald's Omega (ω) for the selected models to assess how well each factor's items measure the underlying construct. Generally, reliability coefficients of 0.70 or higher are considered acceptable for research purposes, with 0.80 or higher preferred for high-stakes applications. Conversely, coefficients above roughly 0.95 can indicate item redundancy rather than superior measurement, since near-paraphrased items inflate internal consistency while adding little construct coverage; we therefore read very high values as a signal to inspect item content rather than as evidence of quality.
 
 ```{r}
-lavTestLRT(cfa_model_1F, cfa_model_EFA, model.names = c("1F", "EFA"))
+rel_m2 <- reliability(m2)
+rel_m3 <- reliability(m3)
 ```
+
+All coefficients are based on **ordinal indicators** (7-point Likert scale), so we report **α.ord** (Cronbach's alpha using polychoric correlations) rather than the standard alpha which assumes continuous data.
+
+```{r}
+bind_rows(
+  tibble(
+    Model = "M2",
+    Factor = "Distrust",
+    `α.ord` = round(rel_m2["alpha.ord", "Distrust"], 3),
+    `ω` = round(rel_m2["omega", "Distrust"], 3)
+  ),
+  tibble(
+    Model = "M2",
+    Factor = "Trust",
+    `α.ord` = round(rel_m2["alpha.ord", "Trust"], 3),
+    `ω` = round(rel_m2["omega", "Trust"], 3)
+  ),
+  tibble(
+    Model = "M3",
+    Factor = "RiskVigilance",
+    `α.ord` = round(rel_m3["alpha.ord", "RiskVigilance"], 3),
+    `ω` = round(rel_m3["omega", "RiskVigilance"], 3)
+  ),
+  tibble(
+    Model = "M3",
+    Factor = "RelationalScepticism",
+    `α.ord` = round(rel_m3["alpha.ord", "RelationalScepticism"], 3),
+    `ω` = round(rel_m3["omega", "RelationalScepticism"], 3)
+  )
+) |> kable(col.names = c("Model", "Factor", "α.ord", "ω"))
+```
+
+# Unexplained Variance
+
+For transparency in reporting, when fitting models is also interesting to ask what variance they do not capture. Since global indices can mask localised misfit, we can inspect the largest standardised residual correlations. While we do not plan to use the results of standardised residual correlations in any specific modelling decisions, we compute and report them to interpreter their relative fit.
+
+> on EFA data, we inspect residual covariance for m3, which is the most complex model we are considering
+
+```{r}
+resid_cor <- residuals(m3, type = "cor")$cov
+resid_cor[upper.tri(resid_cor, diag = TRUE)] <- NA
+
+as.data.frame(as.table(resid_cor)) |>
+  filter(!is.na(Freq)) |>
+  arrange(desc(abs(Freq))) |>
+  head(10) |>
+  transmute(item_1 = Var1, item_2 = Var2, residual_r = round(Freq, 3)) |>
+  kable()
+```
+
+> On the EFA data, 7/10 of residual covariance top pairs seems to relate to correlations across trust and distrust factors, two pairs are about the relationship between the last Risk Vigilance items and items in the Relational Scepticism factor (25-26 and 25-31). The remaining one is a negative correlation internal to the Relational Scepticism factor (27-30: r = -0.2) which points to some concerns regarding the internal consistency of this factor.

@@ -55,3 +55,4 @@ rsconnect/
 *_files/
 .DS_Store
 .positai
+.posit/assistant

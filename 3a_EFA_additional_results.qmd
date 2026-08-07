@@ -72,6 +72,34 @@ R <- polychoric(efa_data %>% select(all_of(cols_tpsai)))$rho
 n_obs <- nrow(efa_data)
 ```
 
+# Item Statistics
+
+```{r}
+item_stats <- efa_data %>%
+  select(all_of(cols_tpsai)) %>%
+  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
+  group_by(item) %>%
+  summarise(
+    n        = sum(!is.na(response)),
+    mean     = mean(response, na.rm = TRUE),
+    sd       = sd(response, na.rm = TRUE),
+    median   = median(response, na.rm = TRUE),
+    min      = suppressWarnings(min(response, na.rm = TRUE)),
+    max      = suppressWarnings(max(response, na.rm = TRUE)),
+    skew     = psych::skew(response, na.rm = TRUE),
+    kurtosis = psych::kurtosi(response, na.rm = TRUE),
+    .groups  = "drop"
+  ) %>%
+  arrange(item)
+
+item_stats %>%
+  knitr::kable(
+    digits = 2,
+    col.names = c("Item", "N", "Mean", "SD",
+                  "Median", "Min", "Max", "Skew", "Kurtosis"),
+  )
+```
+
 # Factors
 
 The EFA suggested:

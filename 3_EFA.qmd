@@ -189,7 +189,7 @@ We extract the suggested number of factors using **MINRES** (minimum residual) e
 ```{r}
 efa <- fa(
   r = R,
-  nfactors = 2,  # determined in previous section
+  nfactors = n_factors,  # determined in previous section
   n.obs = nrow(efa_data),
   fm = "minres",          # minimum residual: no distributional assumptions
   rotate = "oblimin"      # oblique rotation: allows factors to correlate
@@ -236,17 +236,19 @@ plot_loadings <- function(loadings, by_factor = FALSE) {
               aes(label = label, colour = abs(loading) > 0.5),
               fontface = "bold") +
     scale_colour_manual(values = c("TRUE" = "white", "FALSE" = "black"), guide = "none") +
-    scale_fill_gradient2(low = "blue", mid = "white", high = "red") +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red",
+                         midpoint = 0, limits = c(-1, 1),
+                         oob = scales::squish) +
     scale_y_discrete(limits = rev) +
-    theme_minimal() +
-    theme(legend.position = "bottom") +
+    theme_minimal(base_size = 14) +
+    theme(legend.position = "right") +
     labs(x = "", y = "", fill = "")
 }
 ```
 
 ```{r}
-#| fig-width: 5
-#| fig-height: 8
+#| fig-width: 4
+#| fig-height: 12
 plot_loadings(efa$loadings)
 ```
 
@@ -402,7 +404,7 @@ compare_omega(list(omega_trust_2, omega_trust_3, omega_trust_4)) |> kable()
 ```
 
 ```{r}
-#| fig-width: 3
+#| fig-width: 4
 #| fig-height: 4
 sl_subset <- omega_trust_2$schmid$sl[, c("F1*", "F2*")]
 plot_loadings(sl_subset)
@@ -441,7 +443,7 @@ compare_omega(list(omega_distrust_2, omega_distrust_3, omega_distrust_4)) |> kab
 ```
 
 ```{r}
-#| fig-width: 3
+#| fig-width: 4
 #| fig-height: 4
 sl_subset <- omega_distrust_2$schmid$sl[, c("F1*", "F2*")]
 plot_loadings(sl_subset)
@@ -518,8 +520,8 @@ ECV confirms what *ω_s* indicated:
 In particular we note that if we explore overall EFA with a 3-factors structure
 
 ```{r}
-#| fig-width: 4
-#| fig-height: 6
+#| fig-width: 5
+#| fig-height: 12
 efa_3f <- fa(r = R, nfactors = 3, n.obs = nrow(efa_data), fm = "minres", rotate = "oblimin")
 plot_loadings(efa_3f$loadings)
 ```
@@ -529,47 +531,10 @@ The third factor (TPSAI_27-31) is actually one of the two subfactors of the Dist
 Importantly, if we explore EFA with a 4-factors structure
 
 ```{r}
-#| fig-width: 4
-#| fig-height: 6
+#| fig-width: 6
+#| fig-height: 12
 efa_3f <- fa(r = R, nfactors = 4, n.obs = nrow(efa_data), fm = "minres", rotate = "oblimin")
 plot_loadings(efa_3f$loadings)
 ```
 
 The next separation does not divide trust into two subfactors, as theoretically plausible, but rather creating a spurious subfactor with only one item. This further shows that there is almost no evidence of separation within the trust factor.
-
-Taken together, all the EFA evidence suggests that the data have the following underlying structure
-
-- a unidimensional **Trust** factor comprising items TPSAI_1 to 16
-
-- a bi-dimensional **Distrust** factor that splits into
-
-  - a Risk Vigilance subfactor comprising items TPSAI_17 to 26
-
-  - a Relational Scepticism subfactor comprising items TPSAI_27 to 31
-
-```{r}
-trust_items    <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 1:16)]
-distrust_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 17:31)]
-risk_vigilance_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 17:26)]
-relationa_scepticism_items <- cols_tpsai[cols_tpsai %in% sprintf("TPSAI_%02d", 27:31)]
-```
-
-# Reliability
-
-## Cronbach Alpha
-
-```{r}
-alpha_trust <- alpha(R_trust)
-alpha_distrust <- alpha(R_distrust)
-alpha_vigilance  <- alpha(R[risk_vigilance_items,risk_vigilance_items])
-alpha_skepticism <- alpha(R[relationa_scepticism_items,relationa_scepticism_items])
-
-tibble::tibble(
-  Scale = c("Trust", "Distrust", 
-            "Distrust: Risk Vigilance", "Distrust: Relational Skepticism"),
-  Alpha = c(alpha_trust$total$raw_alpha,
-            alpha_distrust$total$raw_alpha,
-            alpha_vigilance$total$raw_alpha,
-            alpha_skepticism$total$raw_alpha)
-) |> kable(digits = 3)
-```

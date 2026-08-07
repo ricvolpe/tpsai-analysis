@@ -1,0 +1,922 @@
+---
+title: "Scale Evaluation"
+author: "Riccardo Volpato"
+format:
+  html:
+    embed-resources: true
+    toc: true
+editor: visual
+bibliography: references.bib
+execute:
+  message: false
+  warning: false
+---
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(knitr)
+library(polycor)
+library(semTools)
+```
+
+# Data Processing
+
+```{r}
+options(readr.show_col_types = FALSE)
+file_path <- "data/TPSai+–+Prolific_EFA_24+June+2026_16.04.csv" #TODO: switch to CFA data
+raw_data  <- read_csv(file_path, n_max = 2)
+colnames  <- names(raw_data)
+q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
+```
+
+```{r}
+questions_map <- read_csv("surveys/efa_qs.csv") #TODO: switch to CFA questions
+cols_tpsai_raw  <- sprintf("TPSAI_%d", seq_len(nrow(questions_map)))
+```
+
+```{r}
+# check that survey and factors correspond
+data.frame(
+  survey_col  = cols_tpsai_raw,
+  survey_q    = unname(q_text[cols_tpsai_raw]),
+  factor_item = questions_map$Item
+) %>%
+  mutate(match = survey_q == factor_item) |>
+  filter(!match) %>% nrow() == 0
+```
+
+```{r}
+data.frame(
+  id  = cols_tpsai_raw,
+  item = questions_map$Item
+) |> kable()
+```
+
+**Demographic data**
+
+```{r}
+demog <- list.files("data/demog", full.names = TRUE) |>
+  lapply(read_csv, show_col_types = FALSE) |>
+  bind_rows() |>
+  rename(PROLIFIC_PID = `Participant id`)
+
+raw_data <- raw_data |>
+  left_join(demog, by = "PROLIFIC_PID") |>
+  filter(`Status.y` == "APPROVED")
+```
+
+```{r}
+likert_levels <- c(
+  "Strongly disagree"          = 1,
+  "Disagree"                   = 2,
+  "Somewhat disagree"          = 3,
+  "Neither agree nor disagree" = 4,
+  "Somewhat agree"             = 5,
+  "Agree"                      = 6,
+  "Strongly agree"             = 7
+)
+
+overall_levels <- c(
+  "Not at all"  = 1, 
+  "Very little" = 2, 
+  "A little"    = 3,
+  "Moderately"  = 4, 
+  "Quite a bit" = 5, 
+  "Very much"   = 6,
+  "Completely"  = 7
+)
+
+freq_levels <- c(
+  "Never",
+  "About once a month",
+  "About once a week to a few times a month",
+  "Several times a week",
+  "Daily or multiple times a day"
+)
+```
+
+```{r}
+cols_tpsai <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", cols_tpsai_raw)
+comp_items    <- sprintf("TPSAI_%02d", c(1:9))
+affect_items  <- sprintf("TPSAI_%02d", c(10:16)) #TODO: adjust to CFA data 10:15
+rv_items      <- sprintf("TPSAI_%02d", 17:26) #TODO: adjust to CFA data 16:25
+rs_items      <- sprintf("TPSAI_%02d", 27:31) #TODO: adjust to CFA data 26:30
+
+item_map <- bind_rows(
+  tibble(item = comp_items,   top = "Trust",    sub = "Competence"),
+  tibble(item = affect_items, top = "Trust",    sub = "Affective"),
+  tibble(item = rv_items,     top = "Distrust", sub = "RiskVigilance"),
+  tibble(item = rs_items,     top = "Distrust", sub = "RelationalScepticism")
+) |>
+  arrange(item)
+
+item_map <- item_map |>
+  mutate(sub3 = if_else(top == "Trust", "Trust", sub))
+
+trust_items    <- item_map |> filter(top == "Trust")    |> pull(item)
+distrust_items <- item_map |> filter(top == "Distrust") |> pull(item)
+
+item_map |> count(top, sub) |> kable(col.names = c("Top-level", "Subfactor", "Items"))
+```
+
+```{r}
+eval_data <- raw_data |>
+  mutate(across(all_of(cols_tpsai_raw), ~ likert_levels[.x])) |>
+  rename(all_of(setNames(cols_tpsai_raw, cols_tpsai))) |>
+  mutate(
+    trust_score = rowMeans(across(all_of(trust_items))),
+    dt_rv_score = rowMeans(across(all_of(rv_items))),
+    dt_rs_score = rowMeans(across(all_of(rs_items)))
+  ) |>
+  mutate(
+    frequency_level = factor(FREQ, levels = freq_levels, ordered = TRUE),
+    frequency_level = as.integer(frequency_level),
+    trust_level   = overall_levels[TR],
+    distrust_level   = overall_levels[DT]
+  ) |>
+  mutate(platform = 
+           coalesce(`PLAT-PSY_11_TEXT`, `PLAT-PSY`, `PLAT-GEN_11_TEXT`, `PLAT-GEN`)) |>
+  select(
+    all_of(cols_tpsai), trust_score, dt_rv_score, dt_rs_score,
+    frequency_level, trust_level, distrust_level, platform, Age)
+```
+
+# Item-level Reporting
+
+```{r}
+item_stats <- eval_data %>%
+  select(all_of(cols_tpsai)) %>%
+  pivot_longer(everything(), names_to = "item", values_to = "response") %>%
+  group_by(item) %>%
+  summarise(
+    n        = sum(!is.na(response)),
+    mean     = mean(response, na.rm = TRUE),
+    sd       = sd(response, na.rm = TRUE),
+    median   = median(response, na.rm = TRUE),
+    min      = suppressWarnings(min(response, na.rm = TRUE)),
+    max      = suppressWarnings(max(response, na.rm = TRUE)),
+    skew     = psych::skew(response, na.rm = TRUE),
+    kurtosis = psych::kurtosi(response, na.rm = TRUE),
+    .groups  = "drop"
+  ) %>%
+  arrange(item)
+
+item_stats %>%
+  knitr::kable(
+    digits = 2,
+    col.names = c("Item", "N", "Mean", "SD",
+                  "Median", "Min", "Max", "Skew", "Kurtosis"),
+  )
+```
+
+```{r}
+eval_data |>
+  select(all_of(cols_tpsai)) |>
+  pivot_longer(everything(), names_to = "item", values_to = "response") |>
+  mutate(
+    factor = case_when(
+      item %in% trust_items ~ "Trust",
+      item %in% rv_items ~ "Risk Vigilance",
+      item %in% rs_items ~ "Relational Scepticism",
+      .default = NA_character_
+    )
+  ) |>
+  mutate(factor = factor(factor, levels = c("Trust", "Risk Vigilance", "Relational Scepticism"))) |>
+  ggplot(aes(x = item, y = response, fill = factor)) +
+  geom_boxplot(alpha = 0.7) +
+  scale_y_continuous(limits = c(1, 7), breaks = 1:7) +
+  labs(x = "", y = "Response", fill = "Factor") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+```
+
+# Factor Score Distributions
+
+```{r, fig.height=3, fig.width=8}
+eval_data |>
+  pivot_longer(
+    cols = c(trust_score, dt_rv_score, dt_rs_score),
+    names_to = "factor",
+    values_to = "score"
+  ) |>
+  mutate(
+    factor = factor(
+      factor,
+      levels = c("trust_score", "dt_rv_score", "dt_rs_score"),
+      labels = c("Trust", "Risk Vigilance (Distrust)", "Relational Scepticism (Distrust)")
+    )
+  ) |>
+  ggplot(aes(x = score, fill = factor)) +
+  geom_histogram(bins = 20, alpha = 0.7, color = "white") +
+  facet_wrap(~factor, ncol = 3) +
+  scale_x_continuous(limits = c(1, 7)) +
+  labs(x = "Score", y = "Frequency", fill = "") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+# Concurrent Validity
+
+We test whether TPSai scores have sufficient correlation with important indicators including overall trust and distrust and frequency of use of generative AI for psychological support.
+
+Throughout this analysis we estimate correlations using `polycor::hetcor()`, which selects the appropriate coefficient for each pair of variables — Pearson for two continuous variables, polyserial for a continuous and an ordinal variable, and polychoric for two ordinal variables — so that correlations involving single-item ordinal measures are not attenuated by treating ordered categories as interval scores.
+
+## Overall Trust/Distrust
+
+In our questionnaire, we asked respondents to answer two single-item Trust and Distrust questions. Let's look at the correlations between factors and subfactors with answers to these questions.
+
+```{r}
+overall_labels <- c("Not at all", "Very little", "A little", "Moderately", 
+                    "Quite a bit", "Very much", "Completely")
+
+trust_recode <- setNames(overall_labels, rev(overall_labels))
+
+plot_data_div <- raw_data %>%
+  select(TR, DT) %>%
+  mutate(TR = unname(trust_recode[TR])) %>%
+  pivot_longer(cols = c(TR, DT), names_to = "measure", values_to = "response") %>%
+  mutate(
+    response = factor(response, levels = overall_labels),
+    measure  = factor(measure, levels = c("DT", "TR"),
+                      labels = c("Distrust", "Trust"))
+  ) %>%
+  count(measure, response, .drop = FALSE) %>%
+  group_by(measure) %>%
+  mutate(
+    pct = n / sum(n),
+    pct_signed = if_else(measure == "Distrust", -pct, pct)
+  ) %>%
+  ungroup()
+
+overalls_plot <- ggplot(plot_data_div, aes(x = pct_signed, y = response, fill = measure)) +
+  geom_col(width = 0.7) +
+  geom_vline(xintercept = 0, color = "grey40") +
+  scale_x_continuous(
+    labels = function(x) scales::percent(abs(x), accuracy = 1),
+    limits = c(-0.30, 0.30),
+    breaks = seq(-0.30, 0.30, 0.10)
+  ) +
+  scale_y_discrete(
+    limits = rev,
+    sec.axis = dup_axis(labels = overall_labels)
+  ) +
+  scale_fill_manual(values = c("Trust" = "#1f4e79", "Distrust" = "#d97706")) +
+  labs(x = NULL, y = NULL, fill = NULL) + 
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "top",
+    panel.grid.major.y = element_blank(),
+    axis.text.y.left   = element_text(color = "#d97706"),
+    axis.text.y.right  = element_text(color = "#1f4e79")
+  )
+
+overalls_plot
+```
+
+*Pre-registration:* we are expecting moderate to high correlation values (0.4 to 0.8), indicating that scale scores are predictive of single-item trust and distrust question. More specifically we are expecting high positive correlations (0.6 to 0.8) between corresponding scores and single items (e.g. trust scores and trust single item) and moderate negative correlations (-0.6 to -0.4) between non-complementary pairs (e.g. trust scores and distrust single items), since we assume that trust and distrust are related but not the polar opposite of each other.
+
+```{r}
+single_items_data <- eval_data |>
+  transmute(
+    trust_score, dt_rv_score, dt_rs_score,
+    trust_level    = ordered(trust_level,    levels = 1:7),
+    distrust_level = ordered(distrust_level, levels = 1:7)
+  ) |>
+  as.data.frame()
+
+single_items_cors <- hetcor(single_items_data, ML = TRUE, std.err = TRUE)
+```
+
+```{r}
+single_items_cors$correlations |> kable(digits = 2)
+```
+
+```{r}
+single_items_cors$type
+```
+
+## Frequency of use
+
+**Measurement invariance:** we do not test measurement invariance across frequency-of-use groups because response distributions differ sufficiently between groups that several items have empty response categories. Respondents who never use generative AI for psychological support did not select the highest category on any of several trust items, nor the lowest categories on several distrust items, with the mirror pattern among frequent users. Threshold parameters cannot be estimated for empty categories, and the collapsing required to estimate them across all groups would reduce the seven-point scale to four categories. Invariance established on a four-category recode would not licence conclusions about the instrument as administered, and the collapsing would itself discard the group differences in response behaviour that motivate the comparison.
+
+```{r}
+eval_data |>
+  mutate(FREQ_group = raw_data$FREQ) |>
+  pivot_longer(all_of(cols_tpsai), names_to = "item") |>
+  count(FREQ_group, item, value) |>
+  complete(FREQ_group, item, value = 1:7, fill = list(n = 0)) |>
+  filter(n == 0) |>
+  left_join(item_map[, c("item", "sub3")], by = "item") |>
+  count(FREQ_group, sub3, value) |>
+  mutate(FREQ_group = factor(FREQ_group, levels = freq_levels, ordered = TRUE)) |>
+  arrange(FREQ_group) |>
+  kable(col.names = c("Frequency group", "Domain", "Unused rating", "Items"))
+```
+
+*Pre-registration*: we are expecting scale scores to have moderately correlations (0.3 - 0.7) with frequency of use, suggesting some that TPSai scales have some predictive power over how often people use generative AI for psychological support. More specifically, trust should have be positively correlated while distrust subscale (risk vigilance and relational scepticism) should be negatively correlated.
+
+```{r}
+freq_data <- eval_data |>
+  transmute(
+    trust_score, dt_rv_score, dt_rs_score,
+    frequency_level = ordered(frequency_level, levels = 1:5)
+  ) |>
+  as.data.frame()
+
+freq_data_cors <- hetcor(freq_data, ML = TRUE, std.err = TRUE)
+```
+
+```{r}
+freq_data_cors$correlations |> kable(digits = 2)
+```
+
+```{r}
+freq_data_cors$type |> kable()
+```
+
+We also display plots displaying the scale scores over the order of frequency use (from Never to Daily) to investigate any trends. For instance, we expect that trust scores grow with use while distrust scores decrease. Through these plots, we can also inspect the differences between scores at difference frequency levels, which may indicate that TPSai discriminates better between scales (e.g. trust and distrust) at different frequency levels.
+
+```{r}
+freq_scores <- eval_data |>
+  mutate(frequency_level = factor(frequency_level, levels = 1:5, labels = freq_levels)) |>
+  pivot_longer(cols = c(trust_score, dt_rv_score, dt_rs_score), 
+               names_to = "scale", values_to = "score") |>
+  group_by(frequency_level, scale) |>
+  summarise(mean_score = mean(score), .groups = "drop")
+```
+
+```{r}
+freq_scores |>
+  ggplot(aes(x = frequency_level, y = mean_score, color = scale, group = scale)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_y_continuous(limits = c(1, 7)) +
+  labs(x = "", y = "", color = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+```{r}
+freq_scores |>
+  pivot_wider(
+    names_from = scale,
+    values_from = mean_score
+  ) |> kable(digits = 2)
+```
+
+```{r}
+freq_scores_wide <- freq_scores |>
+  pivot_wider(
+    names_from = scale,
+    values_from = mean_score
+  ) |>
+  mutate(
+    trust_delta = trust_score - lag(trust_score),
+    rv_delta = dt_rv_score - lag(dt_rv_score),
+    rs_delta = dt_rs_score - lag(dt_rs_score)
+  )
+
+freq_level_labels <- freq_levels
+
+bind_rows(
+  freq_scores_wide |> 
+    select(frequency_level, trust_delta, rv_delta, rs_delta) |>
+    mutate(
+      comparison = case_when(
+        row_number() == 2 ~ "Monthly - Never",
+        row_number() == 3 ~ "Weekly - Monthly",
+        row_number() == 4 ~ "Several x week - Weekly",
+        row_number() == 5 ~ "Daily - Seveal x week"
+      )
+    ) |>
+    filter(!is.na(trust_delta)) |>
+    select(comparison, trust_delta, rv_delta, rs_delta),
+  tibble(
+    comparison = "Daily vs Never",
+    trust_delta = freq_scores_wide$trust_score[5] - freq_scores_wide$trust_score[1],
+    rv_delta = freq_scores_wide$dt_rv_score[5] - freq_scores_wide$dt_rv_score[1],
+    rs_delta = freq_scores_wide$dt_rs_score[5] - freq_scores_wide$dt_rs_score[1]
+  )
+) |> kable(digits = 2,)
+```
+
+# Construct Validity
+
+We investigate the extent to which TPSai scores capture our construct of interest, that is, *situational trust in psychological support from a specific generative AI platform*.
+
+## Related measures
+
+We seek to confirm that TPSai is related yet substantially different from measures of other related constructs including:
+
+1.  Predisposition to Trust in Automated Technology (PTT-A)
+
+2.  Epistemic Trust, Mistrust, and Credulity Questionnaire (ETMCQ) towards unknown others
+
+3.  Generative AI dependency (GAID)
+
+### PTT-A
+
+@ragone2026 used and adapted the PTT scale from @merritt2013, swapped "machines" for "computers" and making some other minor modifications. However, we decided to use the PTT-A scale from @scholz2025 which was developed more recently and was evaluated through more rigorous psychometric analysis, including test-retest reliability.
+
+We use the PTT-A short form [@scholz2025] which comprises of the following six **items**:
+
+1.  Even though I may sometimes suffer the consequences of trusting automated technological systems, I still prefer to trust than not to trust them.
+2.  I rarely trust automated technological systems because I can’t handle the uncertainty.
+3.  Automated technological systems are competent.
+4.  I am wary about the capabilities of automated technological systems.
+5.  I don’t expect that automated technological systems are willing to assist and support people.
+6.  I feel that automated technological systems can be relied upon to do what they say they will do.
+
+**Scoring:** items are measured on a five-point Likert-type scale ranging from 1 (“strongly disagree”) to 5 (“strongly agree”) and items 2, 4, and 5 are reversed items (which we recode as recode as 6 − x). Given the briefness of the scale and its unidimensional nature we only compute the overall PTT-A score as the mean of its 6 items (after reversals).
+
+### ETMCQ
+
+**Factors:**
+
+1.  *Trust* - "individual is selectively and appropriately open to opportunities for social learning in the context of relationships"
+
+2.  *Mistrust* - "tendency to treat any source of information as unreliable or ill-intentioned, and to err on the side of rejecting or avoiding allowing oneself to be influenced by communication from others"
+
+3.  *Credulity* - "a pronounced lack of vigilance and discrimination, signalling a general lack of clarity about one’s own position and resulting in vulnerability to misinformation and potential risk of exploitation."
+
+**Items:**
+
+| ID | Item | Factor |
+|-----------------|--------------------------------------|-----------------|
+| ETMCQ_1 | I usually ask people for advice when I have a personal problem. | Trust |
+| ETMCQ_2 | I find information easier to trust and absorb when it comes from someone who knows me well. | Trust |
+| ETMCQ_3 | I’d prefer to find things out for myself on the internet rather than asking people for information. | Mistrust |
+| ETMCQ_4 | I often feel that people do not understand what I want and need. | Mistrust |
+| ETMCQ_5 | I am often considered naïve because I believe almost anything that people tell me. | Credulity |
+| ETMCQ_6 | When I speak to different people, I find myself easily persuaded by what they say even if this is different from what I believed before. | Credulity |
+| ETMCQ_7 | Sometimes, having a conversation with people who have known me for a long time helps me develop new perspectives about myself. | Trust |
+| ETMCQ_8 | I find it very useful to learn from what people tell me about their experiences. | Trust |
+| ETMCQ_9 | If you put too much faith in what people tell you, you are likely to get hurt. | Mistrust |
+| ETMCQ_10 | When someone tells me something, my immediate reaction is to wonder why they are telling me this. | Mistrust |
+| ETMCQ_11 | I have too often taken advice from the wrong people. | Credulity |
+| ETMCQ_12 | People have told me that I am too easily influenced by others | Credulity |
+| ETMCQ_13 | If I don’t know what to do, my first instinct is to ask someone whose opinion I value. | Trust |
+| ETMCQ_14 | I don’t usually act on advice that I get from others even when I think it’s probably sound. | Mistrust |
+| ETMCQ_15 | In the past, I have misjudged who to believe and been taken advantage of. | Credulity |
+
+**Scoring:** items are 7-point Likert scales. Original paper [@campbell2021] is not clear about scoring, but no items seems reversed and factor scores are mean of the items in the factor. Mistrust had weak internal consistency in the original Study 2 (α = .65) s worth checking your own alphas before leaning on it. Given the clear 3-factors nature of ETMCQ we only compute factor scores (i.e. Trust, Mistrust, and Credulity) and no overall score.
+
+**Assumed relationship with TPSai**
+
+- Trust should positively relate with Trust
+
+- Mistrust should positively relate with Risk Vigilance and Relational Scepticism
+
+- Credulity should negatively positively with Risk Vigilance
+
+### GAID
+
+**Factors:**
+
+1.  Cognitive preoccupation - "a persistent mental engagement with generative AI, characterized by anticipatory excitement, internal urges to use, and the increasing influence of AI on everyday decision-making"
+2.  Negative consequences - "self-reported concerns related to reliance on generative AI, including perceptions of reduced performance and diminished self-efficacy"
+3.  Withdrawal - "psychological distress and affective discomfort experienced when access to generative AI is restricted"
+
+**Items:**
+
+| ID | Item | Factor |
+|-------------------|-----------------------------------|-------------------|
+| GAID_1 | My decisions are often influenced by generative AI. | Cognitive Preoccupation |
+| GAID_2 | I feel an urge to use generative AI, even when it may not be necessary. | Cognitive Preoccupation |
+| GAID_3 | I look forward to using generative AI, even if it is unrelated to the task at hand. | Cognitive Preoccupation |
+| GAID_4 | My use of generative AI has caused concerns for me. | Negative Consequences |
+| GAID_5 | I have trouble completing work or other responsibilities without generative AI. | Negative Consequences |
+| GAID_6 | I feel less confident in my abilities without generative AI. | Negative Consequences |
+| GAID_7 | My use of generative AI has negatively affected my problem-solving skills or efficiency. | Negative Consequences |
+| GAID_8 | I experience restlessness if I am unable to use generative AI. | Withdrawal |
+| GAID_9 | I feel unsettled or distracted when I cannot use generative AI. | Withdrawal |
+| GAID_10 | I feel a sense of disconnection when I cannot access generative AI. | Withdrawal |
+| GAID_11 | I get frustrated or irritable when I am unable to use generative AI. | Withdrawal |
+
+**Scoring**: items are 5-point Likert scales. Factor scores are computed as mean of item ratings and overall scale score is computed as a mean of factor scores.
+
+**Assumed relationship with TPSai:**
+
+- Overall dependency should positively relate with Trust and negatively with Risk Vigilance
+
+- Negative consequences should positively relate with Risk Vigilance and Relational Scepticism
+
+- Cognitive Preoccupation should positive relate with Risk Vigilance
+
+- Withdrawal should negatively relate with Relational Scepticism
+
+## Analysis
+
+```{r}
+instrument_map <- bind_rows(
+  item_map |> transmute(item, factor = sub3, instrument = "TPSai"),
+  
+  tibble(
+    instrument = "PTT",
+    factor     = "PTT",
+    item       = sprintf("PTT_%d", 1:6)
+  ),
+  
+  tibble(
+    instrument = "ETMCQ",
+    item       = sprintf("ETMCQ_%d", 1:15),
+    factor     = c("ETMCQ_Trust", "ETMCQ_Trust", "ETMCQ_Mistrust",
+                   "ETMCQ_Mistrust", "ETMCQ_Credulity", "ETMCQ_Credulity",
+                   "ETMCQ_Trust", "ETMCQ_Trust", "ETMCQ_Mistrust",
+                   "ETMCQ_Mistrust", "ETMCQ_Credulity", "ETMCQ_Credulity",
+                   "ETMCQ_Trust", "ETMCQ_Mistrust", "ETMCQ_Credulity")
+  ),
+  
+  tibble(
+    instrument = "GAID",
+    item       = sprintf("GAID_%d", 1:11),
+    factor     = rep(c("GAID_CogPre", "GAID_NegCons", "GAID_Withdrawal"),
+                     times = c(3, 4, 4))
+  )
+)
+```
+
+```{r}
+# Simulating data from additional instruments that will be collected only during CFA
+# TODO: remove when running analysis on CFA data
+set.seed(2026)
+
+pop_model <- '
+  PTT             =~ 0.7*PTT_1 + 0.7*PTT_2 + 0.7*PTT_3 + 0.7*PTT_4 + 0.7*PTT_5 + 0.7*PTT_6
+  ETMCQ_Trust     =~ 0.7*ETMCQ_1 + 0.7*ETMCQ_2 + 0.7*ETMCQ_7 + 0.7*ETMCQ_8 + 0.7*ETMCQ_13
+  ETMCQ_Mistrust  =~ 0.6*ETMCQ_3 + 0.6*ETMCQ_4 + 0.6*ETMCQ_9 + 0.6*ETMCQ_10 + 0.6*ETMCQ_14
+  ETMCQ_Credulity =~ 0.7*ETMCQ_5 + 0.7*ETMCQ_6 + 0.7*ETMCQ_11 + 0.7*ETMCQ_12 + 0.7*ETMCQ_15
+  GAID_CogPre     =~ 0.7*GAID_1 + 0.7*GAID_2 + 0.7*GAID_3
+  GAID_NegCons    =~ 0.7*GAID_4 + 0.7*GAID_5 + 0.7*GAID_6 + 0.7*GAID_7
+  GAID_Withdraw   =~ 0.7*GAID_8 + 0.7*GAID_9 + 0.7*GAID_10 + 0.7*GAID_11
+
+  PTT ~~ 0.3*ETMCQ_Trust + 0.3*ETMCQ_Mistrust + 0.3*ETMCQ_Credulity
+  PTT ~~ 0.3*GAID_CogPre + 0.3*GAID_NegCons + 0.3*GAID_Withdraw
+  ETMCQ_Trust ~~ 0.3*ETMCQ_Mistrust + 0.3*ETMCQ_Credulity + 0.3*GAID_CogPre + 0.3*GAID_NegCons + 0.3*GAID_Withdraw
+  ETMCQ_Mistrust ~~ 0.3*ETMCQ_Credulity + 0.3*GAID_CogPre + 0.3*GAID_NegCons + 0.3*GAID_Withdraw
+  ETMCQ_Credulity ~~ 0.3*GAID_CogPre + 0.3*GAID_NegCons + 0.3*GAID_Withdraw
+  GAID_CogPre ~~ 0.3*GAID_NegCons + 0.3*GAID_Withdraw
+  GAID_NegCons ~~ 0.3*GAID_Withdraw
+'
+
+sim_cont <- lavaan::simulateData(pop_model, sample.nobs = nrow(eval_data))
+
+# discretise with SKEWED thresholds
+cut_skew <- function(x, k) {
+  probs <- if (k == 5) c(.05, .15, .25, .30, .25) else c(.03, .05, .10, .17, .25, .25, .15)
+  as.integer(cut(x, breaks = c(-Inf, qnorm(cumsum(head(probs, -1))), Inf)))
+}
+
+sim_data <- sim_cont |>
+  mutate(across(starts_with("ETMCQ_"), \(x) cut_skew(x, 7)),
+         across(c(starts_with("PTT_"), starts_with("GAID_")), \(x) cut_skew(x, 5)))
+
+eval_sim <- bind_cols(eval_data, sim_data)   # real TPSai + fake comparators
+```
+
+### Correlations
+
+Scale scores for the comparison instruments are computed as the mean of their constituent items, following the scoring procedures specified by the original authors. PTT-A items 2, 4, and 5 are reverse-coded as 6 − x prior to scoring; no items are reversed in the ETMCQ or the generative AI dependency scale. For the ETMCQ and the dependency scale we compute factor scores only, given their established multidimensional structure, with an additional overall dependency score as the mean of its three factor scores; for the PTT-A short form we compute a single score, given its unidimensional nature.
+
+```{r}
+# TODO: replace eval_sim with eval_data throughout
+# reverse-code PTT-A items 2, 4, 5 BEFORE scoring
+eval_sim <- eval_sim |>
+  mutate(across(all_of(sprintf("PTT_%d", c(2, 4, 5))), ~ 6 - .x))
+
+score_factors <- function(data, map) {
+  map |>
+    group_by(factor) |>
+    group_map(\(g, k) tibble(!!k$factor := rowMeans(data[g$item]))) |>
+    bind_cols()
+}
+
+comparison_scores <- score_factors(eval_sim, filter(instrument_map, instrument != "TPSai"))
+
+# GAID overall = mean of its three factor scores (per Goh et al.)
+comparison_scores <- comparison_scores |>
+  mutate(GAID_Overall = rowMeans(across(starts_with("GAID_"))))
+
+sec3 <- eval_sim |>
+  select(trust_score, dt_rv_score, dt_rs_score) |>
+  bind_cols(comparison_scores)
+```
+
+Correlations with TPSai scale scores are estimated with Pearson coefficients. Unlike the concurrent validity analyses, no polyserial or polychoric estimation is required here, as both sides of each correlation are multi-item composites with approximately continuous distributions rather than single ordinal items.
+
+```{r}
+tpsai_cols <- c("trust_score", "dt_rv_score", "dt_rs_score")
+other_cols <- setdiff(names(sec3), tpsai_cols)
+
+ct <- psych::corr.test(sec3, adjust = "none")
+
+sec3_raw <- expand_grid(tpsai = tpsai_cols, other = other_cols) |>
+  mutate(
+    r        = map2_dbl(tpsai, other, \(a, b) ct$r[a, b]),
+    ci_lower = map2_dbl(tpsai, other, \(a, b) tanh(atanh(ct$r[a, b]) - 1.96 / sqrt(nrow(sec3) - 3))),
+    ci_upper = map2_dbl(tpsai, other, \(a, b) tanh(atanh(ct$r[a, b]) + 1.96 / sqrt(nrow(sec3) - 3)))
+  )
+```
+
+```{r}
+sec3_raw |> kable(digits = 2)
+```
+
+### Disattenuation by sample reliability
+
+```{r}
+omega_for <- function(data, map, fname) {
+  items <- filter(map, factor == fname)$item
+  fit <- cfa(paste0(fname, " =~ ", paste(items, collapse = " + ")),
+             data = data, ordered = items, estimator = "WLSMV")
+  semTools::compRelSEM(fit, tau.eq = FALSE, ord.scale = TRUE)[[1]]
+}
+
+omegas <- c(
+  trust_score = 0.966, dt_rv_score = 0.914, dt_rs_score = 0.830,  # ω from CFA (m3)
+  # TODO: replace with updated CFA data
+  map_dbl(setdiff(other_cols, "GAID_Overall"),
+          \(f) omega_for(eval_sim, instrument_map, f)) |>
+    setNames(setdiff(other_cols, "GAID_Overall"))
+)
+
+sec3_raw <- sec3_raw |>
+  mutate(
+    omega_tpsai = omegas[tpsai],
+    omega_other = omegas[other],
+    r_dis       = r / sqrt(omega_tpsai * omega_other)
+  )
+```
+
+```{r}
+sec3_raw |> kable(digits = 2)
+```
+
+### Sign-pattern match
+
+```{r}
+predictions <- tribble(
+  ~tpsai,          ~other,             ~expected,
+  "trust_score",   "ETMCQ_Trust",      "+",
+  "dt_rv_score",   "ETMCQ_Mistrust",   "+",
+  "dt_rs_score",   "ETMCQ_Mistrust",   "+",
+  "dt_rv_score",   "ETMCQ_Credulity",  "-",
+  "dt_rs_score",   "ETMCQ_Credulity",  "-",
+  "trust_score",   "PTT",              "+",
+  "trust_score",   "GAID_Overall",     "+",
+  "dt_rv_score",   "GAID_Overall",     "-",
+  "dt_rs_score",   "GAID_Overall",     "-",
+  "dt_rv_score",   "GAID_NegCons",     "+",
+  "trust_score",   "GAID_CogPre",      "+",
+  "trust_score",   "GAID_Withdrawal",  "+",
+  "dt_rs_score",   "GAID_Withdrawal",  "-"
+)
+
+sec3_tab <- predictions |>
+  left_join(sec3_raw, by = c("tpsai", "other")) |>
+  mutate(
+    observed  = if_else(r > 0, "+", "-"),
+    sign_ok   = expected == observed,
+    in_range  = abs(r) >= 0.2 & abs(r) <= 0.5,
+    above_floor = abs(r) >= 0.2
+  )
+
+sec3_tab |>
+  transmute(tpsai, other, expected,
+            r = round(r, 3),
+            CI = sprintf("[%.2f, %.2f]", ci_lower, ci_upper),
+            r_dis = round(r_dis, 3),
+            sign_ok, in_range) |>
+  kable()
+```
+
+### HTMT
+
+We assess divergent validity with the heterotrait-monotrait ratio (HTMT) [@henseler2015], computed on polychoric correlations with absolute values taken before averaging, since the distrust items are not reverse-coded. HTMT is the average between-construct item correlation, scaled by the within-construct item correlations. It approximates the correlation the two constructs would have if both were perfectly measured, a dis-attenuated estimate that doesn't require to nominate a reliability coefficient. HTMT is computed from the item correlation matrix and requires no fitted model.
+
+```{r}
+syntax_cf <- function(map, col) {
+  map |>
+    filter(!is.na(.data[[col]])) |>
+    group_by(f = .data[[col]]) |>
+    summarise(line = paste0(first(f), " =~ ", paste(item, collapse = " + ")),
+              .groups = "drop") |>
+    pull(line) |>
+    paste(collapse = "\n")
+}
+
+htmt_syntax <- function(map, factors = NULL) {
+  if (!is.null(factors)) map <- filter(map, factor %in% factors)
+  syntax_cf(map, "factor")
+}
+```
+
+```{r}
+htmt_model <- htmt_syntax(instrument_map)
+```
+
+Thresholds are assigned in advance by pair:
+
+- HTMT \< .90 for facets within a domain (e.g. Risk Vigilance vs. Relational Scepticism)
+
+- HTMT \< .85 for conceptually distinct pairs (everything else)
+
+HTMT is evaluated as a point estimate against the thresholds above. We do not compute confidence intervals, as no analytic standard error exists for HTMT and bootstrap estimation over polychoric correlations is computationally prohibitive at this number of items.
+
+```{r}
+# TODO: replace with eval_data
+htmt(htmt_model, data = eval_sim, ordered = TRUE, absolute = TRUE)
+```
+
+# Test-Retest Reliability
+
+We compute test-retest reliability using a follow-up sample of N = 100 respondents who re-completed TPSai one week after the CFA.
+
+```{r}
+# TODO: replace with retest data joined on PROLIFIC_PID
+set.seed(42)
+paired <- eval_data |>
+  select(trust_score, dt_rv_score, dt_rs_score) |>
+  slice_sample(n = 100) |>
+  mutate(across(everything(), \(x) x + rnorm(100, 0, 0.5), .names = "{.col}_t2"))
+```
+
+We evaluate test-retest reliability via:
+
+- **Intraclass Correlation Coefficient (ICC)**, two-way random effects with one rating per subject: the proportion of score variance attributable to stable between-person differences rather than change or error (\< .50 poor, .50–.75 moderate, .75–.90 good, \> .90 excellent). We use absolute-agreement ICC rather than Pearson because Pearson is insensitive to systematic drift: if all scores shift in the same direction between occasions, Pearson remains high while ICC falls.
+
+- **Standard Error of Measurement (SEM)** expresses measurement error in scale points, giving a confidence band around an individual score. An SE\< of 0.35 on a 7-point scale means an observed score of 4.2 is 4.2 ± 0.69 at 95% confidence.
+
+- **Reliable Change Index (RCI)**, the smallest change in an individual's score distinguishable from measurement error.
+
+- **ICC/ω**, the proportion of *reliable* variance that is stable across occasions. A score cannot be more stable than it is reliable, so raw ICCs are not comparable across subscales of differing reliability. ICC ≈ ω indicates that no systematic variance is changing; ICC ≪ ω indicates reliable variance that moves between occasions, which is the situational signal.
+
+```{r}
+omegas <- c(trust_score = 0.966, dt_rv_score = 0.914, dt_rs_score = 0.830)
+
+map_dfr(names(omegas), \(s) {
+  x   <- paired[[s]]
+  y   <- paired[[paste0(s, "_t2")]]
+  icc <- psych::ICC(cbind(x, y))$results |> filter(type == "ICC2")
+  sem <- sd(x) * sqrt(1 - icc$ICC)
+  
+  tibble(
+    scale     = s,
+    r         = cor(x, y),
+    ICC       = icc$ICC,
+    ci        = sprintf("[%.3f, %.3f]", icc$`lower bound`, icc$`upper bound`),
+    omega     = omegas[[s]],
+    icc_omega = icc$ICC / omegas[[s]],
+    SEm       = sem,
+    RCI       = 2.77 * sem
+  )
+}) |>
+  kable(digits = 3,
+        col.names = c("Scale", "r", "ICC(2,1)", "95% CI", "ω", "ICC/ω", "SE~m~", "RCI"))
+```
+
+The criteria pull against each other: a high ICC supports retest reliability but weakens the claim that TPSai is situational, since it indicates the score is largely a stable person characteristic. We interpret retest stability relative to the PTT-A short form [@scholz2025], which reports r\~TT\~ = .71 over approximately one year (ω = .83). Because our interval is one week, a comparable or lower TPSai value would indicate *less* stability than an explicitly dispositional measure, supporting the situational interpretation; a substantially higher value is expected on interval alone and is therefore not by itself evidence of trait-likeness. We compare the ratio of stability to internal consistency rather than the raw coefficient, and use the Pearson correlation for this comparison since the published value is a Pearson r.
+
+Retest reliability and correlations with PTT-A and the ETMCQ jointly locate TPSai on the state–trait continuum, and neither is sufficient alone. Low retest stability together with low correlations with the predisposition measures would support the situational interpretation we intend. High stability together with high correlations would indicate that TPSai largely restates dispositional trust. High stability together with *low* correlations would indicate a *relational* measure: scores stable over a week not because the person is stable, but because their accumulated experience with a specific platform is, changing only after specific events such as a significant mistake by the platform or a news article. We report r² for the correlations with PTT-A and the ETMCQ as the upper bound on the dispositional account.
+
+# Exploratory Analysis
+
+## Platform use
+
+We also explore whether users of different platforms for psychological support score differently on the TPSai subscales. This is an exploratory analysis and we do not have any specific pre-registered expectations.
+
+```{r}
+common_platforms <- eval_data |>
+  count(platform) |>
+  filter(n >= 3) |>
+  pull(platform)
+
+eval_data |>
+  filter(platform %in% common_platforms) |>
+  group_by(platform) |>
+  summarise(n = n(), 
+            trust = mean(trust_score),
+            risk_vigilance = mean(dt_rv_score),
+            relational_scepticism = mean(dt_rs_score),
+            ) |>
+  arrange(desc(n)) |>
+  kable(digits = 2)
+```
+
+```{r}
+eval_data |>
+  filter(platform %in% common_platforms) |>
+  add_count(platform) |>
+  mutate(platform = paste0(platform, " (n = ", n, ")")) |>
+  pivot_longer(cols = c(trust_score, dt_rv_score, dt_rs_score), names_to = "scale", values_to = "score") |>
+  ggplot(aes(x = score, y = scale, fill = platform)) +
+  labs(x = "", y = "") +
+  geom_boxplot()
+```
+
+## Positive Experiences of Psychotherapy
+
+1.  How often have you attended psychotherapy or counselling sessions in your lifetime?
+    a.  Never
+    b.  Once or a few sessions only (1–5 sessions)
+    c.  A short course (roughly 6–20 sessions)
+    d.  An extended course (roughly 21–50 sessions)
+    e.  Long-term or ongoing therapy (more than 50 sessions)
+2.  Thinking about your overall experience of psychotherapy or counselling, how satisfied have you been with it?
+    a.  Very dissatisfied
+    b.  Dissatisfied
+    c.  Neutral
+    d.  Satisfied
+    e.  Very satisfied
+
+**Analysis:** plot scale scores across the levels of both Q1 and Q2, checking for any trends and substantial differences between levels. Exploratory analysis with no pre-registered hypothesis.
+
+```{r}
+# TODO: replace with PSY-FREQ / PSY-SAT from raw_data
+set.seed(42)
+psy_freq_levels <- c("Never", "1–5 sessions", "6–20 sessions",
+                     "21–50 sessions", "50+ sessions")
+psy_sat_levels  <- c("Very dissatisfied", "Dissatisfied", "Neutral",
+                     "Satisfied", "Very satisfied")
+
+psy_data <- eval_data |>
+  mutate(
+    psy_freq = factor(sample(psy_freq_levels, n(), replace = TRUE,
+                             prob = c(.35, .25, .20, .12, .08)),
+                      levels = psy_freq_levels, ordered = TRUE),
+    psy_sat  = if_else(psy_freq == "Never", NA_character_,
+                       sample(psy_sat_levels, n(), replace = TRUE,
+                              prob = c(.05, .10, .20, .40, .25))),
+    psy_sat  = factor(psy_sat, levels = psy_sat_levels, ordered = TRUE)
+  )
+```
+
+```{r}
+plot_psy <- function(data, var, xlab) {
+  data |>
+    filter(!is.na({{ var }})) |>
+    pivot_longer(c(trust_score, dt_rv_score, dt_rs_score),
+                 names_to = "scale", values_to = "score") |>
+    group_by({{ var }}, scale) |>
+    summarise(mean_score = mean(score),
+              se = sd(score) / sqrt(n()),
+              n  = n(), .groups = "drop") |>
+    mutate(label = paste0({{ var }}, "\n(n=", n, ")")) |>
+    ggplot(aes(x = label, y = mean_score, colour = scale, group = scale)) +
+    geom_point(size = 2) +
+    geom_line(linewidth = 1) +
+    geom_errorbar(aes(ymin = mean_score - 1.96 * se,
+                      ymax = mean_score + 1.96 * se),
+                  width = 0.2, alpha = 0.6) +
+    scale_y_continuous(limits = c(1, 7)) +
+    labs(x = xlab, y = "Scale score", colour = "Scale") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+```
+
+```{r}
+plot_psy(psy_data, psy_freq, "Lifetime psychotherapy exposure")
+```
+
+```{r}
+plot_psy(psy_data, psy_sat, "Satisfaction with psychotherapy")
+```
+
+## Age
+
+Bracket age values in groups of 5 or 10 starting from 18, plot mean scores and confidence intervals to explore any group differences and trends. No pre-registered hypothesis.
+
+```{r}
+eval_data |>
+  mutate(Age = as.integer(Age)) |>
+  mutate(age_bracket = cut(
+    Age,
+    breaks = seq(18, 75, by = 5),
+    right = FALSE,
+    include.lowest = TRUE
+  )) |>
+  pivot_longer(cols = c(trust_score, dt_rv_score, dt_rs_score), names_to = "scale", values_to = "score") |>
+  group_by(age_bracket, scale) |>
+  summarise(
+    mean_score = mean(score),
+    se = sd(score) / sqrt(n()),
+    ci_lower = mean_score - 1.96 * se,
+    ci_upper = mean_score + 1.96 * se,
+    n = n(),
+    .groups = "drop"
+  ) |>
+  mutate(age_bracket_label = paste0(age_bracket, "\n(n=", n, ")")) |>
+  ggplot(aes(x = age_bracket_label, y = mean_score, colour = scale, group = scale)) +
+  geom_point(size = 2) +
+  geom_line(linewidth = 1) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.2, alpha = 0.6) +
+  scale_y_continuous(limits = c(1, 7)) +
+  labs(x = "Age Bracket", y = "Scale score", colour = "Scale") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
