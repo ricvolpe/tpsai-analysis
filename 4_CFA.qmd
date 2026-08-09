@@ -18,9 +18,11 @@ library(semTools)
 library(knitr)
 ```
 
+# Data Processing
+
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+–+Prolific_CFA+Eval_9+August+2026_11.55.csv"
+file_path <- "data/TPSai+–+Prolific_CFA+Eval_9+August+2026_19.36.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
@@ -52,6 +54,7 @@ questions_map |> kable()
 ```{r}
 demog <- list.files("data/demog/cfa", full.names = TRUE) |>
   lapply(read_csv, show_col_types = FALSE) |>
+  lapply(\(x) mutate(x, Age = as.character(Age))) |>
   bind_rows() |>
   rename(PROLIFIC_PID = `Participant id`)
 
@@ -536,8 +539,6 @@ bind_rows(
 
 For transparency in reporting, when fitting models is also interesting to ask what variance they do not capture. Since global indices can mask localised misfit, we can inspect the largest standardised residual correlations. While we do not plan to use the results of standardised residual correlations in any specific modelling decisions, we compute and report them to interpreter their relative fit.
 
-> on EFA data, we inspect residual covariance for m3, which is the most complex model we are considering
-
 ```{r}
 resid_cor <- residuals(m3, type = "cor")$cov
 resid_cor[upper.tri(resid_cor, diag = TRUE)] <- NA
@@ -549,5 +550,3 @@ as.data.frame(as.table(resid_cor)) |>
   transmute(item_1 = Var1, item_2 = Var2, residual_r = round(Freq, 3)) |>
   kable()
 ```
-
-> On the EFA data, 7/10 of residual covariance top pairs seems to relate to correlations across trust and distrust factors, two pairs are about the relationship between the last Risk Vigilance items and items in the Relational Scepticism factor (25-26 and 25-31). The remaining one is a negative correlation internal to the Relational Scepticism factor (27-30: r = -0.2) which points to some concerns regarding the internal consistency of this factor.

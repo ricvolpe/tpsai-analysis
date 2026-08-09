@@ -23,7 +23,7 @@ library(semTools)
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+–+Prolific_CFA+Eval_9+August+2026_11.55.csv"
+file_path <- "data/TPSai+–+Prolific_CFA+Eval_9+August+2026_18.59.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
@@ -55,6 +55,7 @@ questions_map |> kable()
 ```{r}
 demog <- list.files("data/demog/cfa", full.names = TRUE) |>
   lapply(read_csv, show_col_types = FALSE) |>
+  lapply(\(x) mutate(x, Age = as.character(Age))) |>
   bind_rows() |>
   rename(PROLIFIC_PID = `Participant id`)
 
@@ -138,8 +139,8 @@ eval_data <- raw_data |>
   rename(all_of(setNames(cols_tpsai_raw, cols_tpsai))) |>
   mutate(
     trust_score = rowMeans(across(all_of(trust_items))),
-    dt_rv_score = rowMeans(across(all_of(rv_items))),
-    dt_rs_score = rowMeans(across(all_of(rs_items)))
+    risk_score = rowMeans(across(all_of(rv_items))),
+    rel_scept_score = rowMeans(across(all_of(rs_items)))
   ) |>
   mutate(
     frequency_level = factor(FREQ, levels = freq_levels, ordered = TRUE),
@@ -150,7 +151,7 @@ eval_data <- raw_data |>
   mutate(platform = 
            coalesce(`PLAT-PSY_11_TEXT`, `PLAT-PSY`, `PLAT-GEN_11_TEXT`, `PLAT-GEN`)) |>
   select(
-    all_of(cols_tpsai), trust_score, dt_rv_score, dt_rs_score,
+    all_of(cols_tpsai), trust_score, risk_score, rel_scept_score,
     frequency_level, trust_level, distrust_level, 
     all_of(ptt_items), all_of(etmcq_items), all_of(gaid_items),
     `PSY-FREQ`, `PSY-SAT`, platform, Age,)
@@ -213,14 +214,14 @@ eval_data |>
 ```{r, fig.height=3, fig.width=8}
 eval_data |>
   pivot_longer(
-    cols = c(trust_score, dt_rv_score, dt_rs_score),
+    cols = c(trust_score, risk_score, rel_scept_score),
     names_to = "factor",
     values_to = "score"
   ) |>
   mutate(
     factor = factor(
       factor,
-      levels = c("trust_score", "dt_rv_score", "dt_rs_score"),
+      levels = c("trust_score", "risk_score", "rel_scept_score"),
       labels = c("Trust", "Risk Vigilance (Distrust)", "Relational Scepticism (Distrust)")
     )
   ) |>
@@ -231,6 +232,17 @@ eval_data |>
   labs(x = "Score", y = "Frequency", fill = "") +
   theme_minimal() +
   theme(legend.position = "none")
+```
+
+**Inter-factor correlations**
+
+```{r}
+factors_data <- eval_data |>
+  select(
+    trust_score, risk_score, rel_scept_score
+  )
+
+cor(factors_data)
 ```
 
 # Concurrent Validity
@@ -296,7 +308,7 @@ overalls_plot
 ```{r}
 single_items_data <- eval_data |>
   transmute(
-    trust_score, dt_rv_score, dt_rs_score,
+    trust_score, risk_score, rel_scept_score,
     trust_level    = ordered(trust_level,    levels = 1:7),
     distrust_level = ordered(distrust_level, levels = 1:7)
   ) |>
@@ -306,11 +318,40 @@ single_items_cors <- hetcor(single_items_data, ML = TRUE, std.err = TRUE)
 ```
 
 ```{r}
-single_items_cors$correlations |> kable(digits = 2)
+single_items_cors$correlations |> 
+  as.data.frame() |>
+  select(trust_level, distrust_level) |>
+  kable(digits = 2)
 ```
 
 ```{r}
-single_items_cors$type
+single_items_cors$type |>
+  as.data.frame() |>
+  select(V4, V5) |>
+  kable()
+```
+
+```{r}
+single_items_tpsai_data <- eval_data |>
+  select(
+    all_of(cols_tpsai),
+    trust_level,
+    distrust_level) |> 
+  mutate(
+    trust_level    = ordered(trust_level,    levels = 1:7),
+    distrust_level = ordered(distrust_level, levels = 1:7)
+  ) |>
+  as.data.frame()
+
+single_items_tpsai_cors <- hetcor(single_items_tpsai_data, ML = TRUE, std.err = TRUE)
+```
+
+```{r}
+single_items_tpsai_cors$correlations |> 
+  as.data.frame() |>
+  select(trust_level, distrust_level) |>
+  filter(abs(distrust_level) > 0.4) |>
+  kable(digits = 2)
 ```
 
 ## Frequency of use
@@ -336,7 +377,7 @@ eval_data |>
 ```{r}
 freq_data <- eval_data |>
   transmute(
-    trust_score, dt_rv_score, dt_rs_score,
+    trust_score, risk_score, rel_scept_score,
     frequency_level = ordered(frequency_level, levels = 1:5)
   ) |>
   as.data.frame()
@@ -345,11 +386,17 @@ freq_data_cors <- hetcor(freq_data, ML = TRUE, std.err = TRUE)
 ```
 
 ```{r}
-freq_data_cors$correlations |> kable(digits = 2)
+freq_data_cors$correlations |> 
+  as.data.frame() |>
+  select(frequency_level) |>
+  kable(digits = 2)
 ```
 
 ```{r}
-freq_data_cors$type |> kable()
+freq_data_cors$type |>
+  as.data.frame() |>
+  select(V4) |>
+  kable()
 ```
 
 We also display plots displaying the scale scores over the order of frequency use (from Never to Daily) to investigate any trends. For instance, we expect that trust scores grow with use while distrust scores decrease. Through these plots, we can also inspect the differences between scores at difference frequency levels, which may indicate that TPSai discriminates better between scales (e.g. trust and distrust) at different frequency levels.
@@ -357,16 +404,21 @@ We also display plots displaying the scale scores over the order of frequency us
 ```{r}
 freq_scores <- eval_data |>
   mutate(frequency_level = factor(frequency_level, levels = 1:5, labels = freq_levels)) |>
-  pivot_longer(cols = c(trust_score, dt_rv_score, dt_rs_score), 
+  pivot_longer(cols = c(trust_score, risk_score, rel_scept_score), 
                names_to = "scale", values_to = "score") |>
   group_by(frequency_level, scale) |>
-  summarise(mean_score = mean(score), .groups = "drop")
+  summarise(mean_score = mean(score),
+            se = sd(score) / sqrt(n()),
+            n  = n(), .groups = "drop")
 ```
 
 ```{r}
 freq_scores |>
   ggplot(aes(x = frequency_level, y = mean_score, color = scale, group = scale)) +
   geom_line(linewidth = 1) +
+  geom_errorbar(aes(ymin = mean_score - 1.96 * se,
+                    ymax = mean_score + 1.96 * se),
+                width = 0.2, alpha = 0.6) +
   geom_point(size = 2) +
   scale_y_continuous(limits = c(1, 7)) +
   labs(x = "", y = "", color = "") +
@@ -375,23 +427,22 @@ freq_scores |>
 ```
 
 ```{r}
-freq_scores |>
+freq_scores_wide <- freq_scores |>
   pivot_wider(
+    id_cols = c(frequency_level, n),
     names_from = scale,
     values_from = mean_score
-  ) |> kable(digits = 2)
+  ) 
+
+freq_scores_wide |> kable(digits = 2)
 ```
 
 ```{r}
-freq_scores_wide <- freq_scores |>
-  pivot_wider(
-    names_from = scale,
-    values_from = mean_score
-  ) |>
+freq_scores_wide <- freq_scores_wide |>
   mutate(
     trust_delta = trust_score - lag(trust_score),
-    rv_delta = dt_rv_score - lag(dt_rv_score),
-    rs_delta = dt_rs_score - lag(dt_rs_score)
+    rv_delta = risk_score - lag(risk_score),
+    rs_delta = rel_scept_score - lag(rel_scept_score)
   )
 
 freq_level_labels <- freq_levels
@@ -412,8 +463,8 @@ bind_rows(
   tibble(
     comparison = "Daily vs Never",
     trust_delta = freq_scores_wide$trust_score[5] - freq_scores_wide$trust_score[1],
-    rv_delta = freq_scores_wide$dt_rv_score[5] - freq_scores_wide$dt_rv_score[1],
-    rs_delta = freq_scores_wide$dt_rs_score[5] - freq_scores_wide$dt_rs_score[1]
+    rv_delta = freq_scores_wide$risk_score[5] - freq_scores_wide$risk_score[1],
+    rs_delta = freq_scores_wide$rel_scept_score[5] - freq_scores_wide$rel_scept_score[1]
   )
 ) |> kable(digits = 2,)
 ```
@@ -460,7 +511,7 @@ We use the PTT-A short form [@scholz2025] which comprises of the following six *
 **Items:**
 
 | ID | Item | Factor |
-|------------------|-------------------------------------|------------------|
+|------------------------|------------------------|------------------------|
 | ETMCQ_1 | I usually ask people for advice when I have a personal problem. | Trust |
 | ETMCQ_2 | I find information easier to trust and absorb when it comes from someone who knows me well. | Trust |
 | ETMCQ_3 | I’d prefer to find things out for myself on the internet rather than asking people for information. | Mistrust |
@@ -498,7 +549,7 @@ We use the PTT-A short form [@scholz2025] which comprises of the following six *
 **Items:**
 
 | ID | Item | Factor |
-|-------------------|----------------------------------|-------------------|
+|------------------------|------------------------|------------------------|
 | GAID_1 | My decisions are often influenced by generative AI. | Cognitive Preoccupation |
 | GAID_2 | I feel an urge to use generative AI, even when it may not be necessary. | Cognitive Preoccupation |
 | GAID_3 | I look forward to using generative AI, even if it is unrelated to the task at hand. | Cognitive Preoccupation |
@@ -577,24 +628,29 @@ comparison_scores <- comparison_scores |>
   mutate(GAID_Overall = rowMeans(across(starts_with("GAID_"))))
 
 sec3 <- eval_data |>
-  select(trust_score, dt_rv_score, dt_rs_score) |>
+  select(trust_score, risk_score, rel_scept_score) |>
   bind_cols(comparison_scores)
 ```
 
 Correlations with TPSai scale scores are estimated with Pearson coefficients. Unlike the concurrent validity analyses, no polyserial or polychoric estimation is required here, as both sides of each correlation are multi-item composites with approximately continuous distributions rather than single ordinal items.
 
 ```{r}
-tpsai_cols <- c("trust_score", "dt_rv_score", "dt_rs_score")
+tpsai_cols <- c("trust_score", "risk_score", "rel_scept_score")
 other_cols <- setdiff(names(sec3), tpsai_cols)
 
 ct <- psych::corr.test(sec3, adjust = "none")
 
 sec3_raw <- expand_grid(tpsai = tpsai_cols, other = other_cols) |>
   mutate(
-    r        = map2_dbl(tpsai, other, \(a, b) ct$r[a, b]),
-    ci_lower = map2_dbl(tpsai, other, \(a, b) tanh(atanh(ct$r[a, b]) - 1.96 / sqrt(nrow(sec3) - 3))),
-    ci_upper = map2_dbl(tpsai, other, \(a, b) tanh(atanh(ct$r[a, b]) + 1.96 / sqrt(nrow(sec3) - 3)))
-  )
+    r = map2_dbl(tpsai, other, \(a, b) ct$r[a, b]),
+    CI = sprintf("[%.2f, %.2f]", 
+                 map2_dbl(tpsai, other, 
+                          \(a, b) tanh(atanh(ct$r[a, b]) - 1.96 / sqrt(nrow(sec3) - 3))),
+                 map2_dbl(tpsai, other, 
+                          \(a, b) tanh(atanh(ct$r[a, b]) + 1.96 / sqrt(nrow(sec3) - 3)))
+                 )
+    ) |>
+  arrange(other)
 ```
 
 ```{r}
@@ -612,7 +668,7 @@ omega_for <- function(data, map, fname) {
 }
 
 omegas <- c(
-  trust_score = 0.966, dt_rv_score = 0.914, dt_rs_score = 0.830,  # ω from CFA (m3)
+  trust_score = 0.955, risk_score = 0.910, rel_scept_score = 0.857,  # ω from CFA (m3)
   # TODO: replace with updated CFA data
   map_dbl(setdiff(other_cols, "GAID_Overall"),
           \(f) omega_for(eval_data, instrument_map, f)) |>
@@ -637,18 +693,18 @@ sec3_raw |> kable(digits = 2)
 predictions <- tribble(
   ~tpsai,          ~other,             ~expected,
   "trust_score",   "ETMCQ_Trust",      "+",
-  "dt_rv_score",   "ETMCQ_Mistrust",   "+",
-  "dt_rs_score",   "ETMCQ_Mistrust",   "+",
-  "dt_rv_score",   "ETMCQ_Credulity",  "-",
-  "dt_rs_score",   "ETMCQ_Credulity",  "-",
+  "risk_score",   "ETMCQ_Mistrust",   "+",
+  "rel_scept_score",   "ETMCQ_Mistrust",   "+",
+  "risk_score",   "ETMCQ_Credulity",  "-",
+  "rel_scept_score",   "ETMCQ_Credulity",  "-",
   "trust_score",   "PTT",              "+",
   "trust_score",   "GAID_Overall",     "+",
-  "dt_rv_score",   "GAID_Overall",     "-",
-  "dt_rs_score",   "GAID_Overall",     "-",
-  "dt_rv_score",   "GAID_NegCons",     "+",
+  "risk_score",   "GAID_Overall",     "-",
+  "rel_scept_score",   "GAID_Overall",     "-",
+  "risk_score",   "GAID_NegCons",     "+",
   "trust_score",   "GAID_CogPre",      "+",
   "trust_score",   "GAID_Withdrawal",  "+",
-  "dt_rs_score",   "GAID_Withdrawal",  "-"
+  "rel_scept_score",   "GAID_Withdrawal",  "-"
 )
 
 sec3_tab <- predictions |>
@@ -656,16 +712,14 @@ sec3_tab <- predictions |>
   mutate(
     observed  = if_else(r > 0, "+", "-"),
     sign_ok   = expected == observed,
-    in_range  = abs(r) >= 0.2 & abs(r) <= 0.5,
-    above_floor = abs(r) >= 0.2
   )
 
 sec3_tab |>
   transmute(tpsai, other, expected,
             r = round(r, 3),
-            CI = sprintf("[%.2f, %.2f]", ci_lower, ci_upper),
+            CI = CI,
             r_dis = round(r_dis, 3),
-            sign_ok, in_range) |>
+            sign_ok) |>
   kable()
 ```
 
@@ -714,7 +768,7 @@ We compute test-retest reliability using a follow-up sample of N = 100 responden
 # TODO: replace with retest data when available joined on PROLIFIC_PID
 set.seed(42)
 paired <- eval_data |>
-  select(trust_score, dt_rv_score, dt_rs_score) |>
+  select(trust_score, risk_score, rel_scept_score) |>
   slice_sample(n = 100) |>
   mutate(across(everything(), \(x) x + rnorm(100, 0, 0.5), .names = "{.col}_t2"))
 ```
@@ -730,7 +784,7 @@ We evaluate test-retest reliability via:
 - **ICC/ω**, the proportion of *reliable* variance that is stable across occasions. A score cannot be more stable than it is reliable, so raw ICCs are not comparable across subscales of differing reliability. ICC ≈ ω indicates that no systematic variance is changing; ICC ≪ ω indicates reliable variance that moves between occasions, which is the situational signal.
 
 ```{r, eval=FALSE}
-omegas <- c(trust_score = 0.966, dt_rv_score = 0.914, dt_rs_score = 0.830)
+omegas <- c(trust_score = 0.966, risk_score = 0.914, rel_scept_score = 0.830)
 
 map_dfr(names(omegas), \(s) {
   x   <- paired[[s]]
@@ -766,7 +820,7 @@ We also explore whether users of different platforms for psychological support s
 ```{r}
 common_platforms <- eval_data |>
   count(platform) |>
-  filter(n >= 3) |>
+  filter(n >= 5) |>
   pull(platform)
 
 eval_data |>
@@ -774,8 +828,8 @@ eval_data |>
   group_by(platform) |>
   summarise(n = n(), 
             trust = mean(trust_score),
-            risk_vigilance = mean(dt_rv_score),
-            relational_scepticism = mean(dt_rs_score),
+            risk_vigilance = mean(risk_score),
+            relational_scepticism = mean(rel_scept_score),
             ) |>
   arrange(desc(n)) |>
   kable(digits = 2)
@@ -786,13 +840,13 @@ eval_data |>
   filter(platform %in% common_platforms) |>
   add_count(platform) |>
   mutate(platform = paste0(platform, " (n = ", n, ")")) |>
-  pivot_longer(cols = c(trust_score, dt_rv_score, dt_rs_score), names_to = "scale", values_to = "score") |>
+  pivot_longer(cols = c(trust_score, risk_score, rel_scept_score), names_to = "scale", values_to = "score") |>
   ggplot(aes(x = score, y = scale, fill = platform)) +
   labs(x = "", y = "") +
   geom_boxplot()
 ```
 
-## Positive Experiences of Psychotherapy
+## Psychotherapy
 
 1.  How often have you attended psychotherapy or counselling sessions in your lifetime?
     a.  Never
@@ -813,7 +867,7 @@ eval_data |>
 plot_psy <- function(data, var, xlab) {
   data |>
     filter(!is.na({{ var }})) |>
-    pivot_longer(c(trust_score, dt_rv_score, dt_rs_score),
+    pivot_longer(c(trust_score, risk_score, rel_scept_score),
                  names_to = "scale", values_to = "score") |>
     group_by({{ var }}, scale) |>
     summarise(mean_score = mean(score),
@@ -833,12 +887,97 @@ plot_psy <- function(data, var, xlab) {
 }
 ```
 
+**Lifetime psychotherapy exposure**
+
 ```{r}
-plot_psy(eval_data, `PSY-FREQ`, "Lifetime psychotherapy exposure")
+psy_freq_levels <- c(
+  "Never",
+  "Once or a few sessions only (1–5 sessions)",
+  "A short course (roughly 6–20 sessions)",
+  "An extended course (roughly 21–50 sessions)",
+  "Long-term or ongoing therapy (more than 50 sessions)"
+)
+
+psy_freq_labels <- c(
+  "Never", "1-5 sessions", "6-20", "21-50", "50+"
+)
+
+psy_freq_data <- eval_data |>
+  mutate(psy_freq = factor(`PSY-FREQ`, levels=psy_freq_levels, 
+                           ordered=TRUE, label=psy_freq_labels)) |>
+  pivot_longer(cols = c(trust_score, risk_score, rel_scept_score), 
+               names_to = "scale", values_to = "score") |>
+  group_by(psy_freq, scale) |>
+  summarise(mean_score = mean(score),
+            se = sd(score) / sqrt(n()),
+            n  = n(), .groups = "drop")
 ```
 
 ```{r}
-plot_psy(eval_data, `PSY-SAT`, "Psychotherapy satisfaction")
+psy_freq_data |>
+  pivot_wider(
+    id_cols = c(psy_freq, n),
+    names_from = scale,
+    values_from = mean_score
+  ) |>
+  kable(digits = 2)
+```
+
+```{r}
+psy_freq_data |> ggplot(aes(x = psy_freq, y = mean_score, color = scale, group = scale)) +
+  geom_line(linewidth = 1) +
+  geom_errorbar(aes(ymin = mean_score - 1.96 * se,
+                    ymax = mean_score + 1.96 * se),
+                width = 0.2, alpha = 0.6) +
+  geom_point(size = 2) +
+  scale_y_continuous(limits = c(1, 7)) +
+  labs(x = "", y = "", color = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+**Psychotherapy satisfaction**
+
+```{r}
+psy_sat_levels <- c(
+  "Very dissatisfied",
+  "Dissatisfied",
+  "Neutral",
+  "Satisfied",
+  "Very satisfied"
+)
+
+psy_sat_data <- eval_data |>
+  filter(!is.na(`PSY-SAT`)) |>
+  mutate(psy_sat = factor(`PSY-SAT`, levels=psy_sat_levels, ordered=TRUE)) |>
+  pivot_longer(cols = c(trust_score, risk_score, rel_scept_score), 
+               names_to = "scale", values_to = "score") |>
+  group_by(psy_sat, scale) |>
+  summarise(mean_score = mean(score),
+            se = sd(score) / sqrt(n()),
+            n  = n(), .groups = "drop")
+```
+
+```{r}
+psy_sat_data |>
+  pivot_wider(
+    id_cols = c(psy_sat, n),
+    names_from = scale,
+    values_from = mean_score
+  ) |> kable(digits = 2)
+```
+
+```{r}
+psy_sat_data |> ggplot(aes(x = psy_sat, y = mean_score, color = scale, group = scale)) +
+  geom_line(linewidth = 1) +
+  geom_errorbar(aes(ymin = mean_score - 1.96 * se,
+                    ymax = mean_score + 1.96 * se),
+                width = 0.2, alpha = 0.6) +
+  geom_point(size = 2) +
+  scale_y_continuous(limits = c(1, 7)) +
+  labs(x = "", y = "", color = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
 ## Age
@@ -850,11 +989,11 @@ eval_data |>
   mutate(Age = as.integer(Age)) |>
   mutate(age_bracket = cut(
     Age,
-    breaks = seq(18, 75, by = 5),
+    breaks = seq(18, 102, by = 5),
     right = FALSE,
     include.lowest = TRUE
   )) |>
-  pivot_longer(cols = c(trust_score, dt_rv_score, dt_rs_score), names_to = "scale", values_to = "score") |>
+  pivot_longer(cols = c(trust_score, risk_score, rel_scept_score), names_to = "scale", values_to = "score") |>
   group_by(age_bracket, scale) |>
   summarise(
     mean_score = mean(score),
@@ -874,3 +1013,5 @@ eval_data |>
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+> Note: may be interesting to check some data before the specific sampling of *Nevers*. Particularly, the age differences.
