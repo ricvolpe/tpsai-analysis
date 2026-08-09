@@ -979,6 +979,36 @@ psy_sat_data |> ggplot(aes(x = psy_sat, y = mean_score, color = scale, group = s
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
+```{r}
+combined_psy_data <- eval_data |>
+  mutate(
+    psy_freq = factor(`PSY-FREQ`, 
+                      levels=psy_freq_levels, ordered=TRUE, label=psy_freq_labels),
+    psy_sat = factor(`PSY-SAT`, levels=psy_sat_levels, ordered=TRUE)
+    ) |>
+  select(psy_freq, psy_sat, trust_score) |>
+  group_by(psy_freq, psy_sat) |>
+  summarise(
+    mean_trust = mean(trust_score),
+    se_trust = sd(trust_score) / sqrt(n()),
+    n = n(),
+    .groups = "drop"
+  ) |>
+  mutate(label = paste0(round(mean_trust, 2), "\n(n=", n, ")"))
+
+ggplot(combined_psy_data, aes(x = psy_freq, y = psy_sat, fill = mean_trust)) +
+  geom_tile(color = "black") +
+  geom_text(aes(label = label), color = "black", size = 4) +
+  scale_fill_gradient(low = "#fee5d9", high = "#a1d99b", name = "Trust") +
+  scale_y_discrete(limits = c(rev(psy_sat_levels), NA)) +
+  labs(x = "",  y = "") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+```
+
 ## Age
 
 Bracket age values in groups of 5 or 10 starting from 18, plot mean scores and confidence intervals to explore any group differences and trends. No pre-registered hypothesis.
@@ -988,7 +1018,7 @@ eval_data |>
   mutate(Age = as.integer(Age)) |>
   mutate(age_bracket = cut(
     Age,
-    breaks = seq(18, 102, by = 5),
+    breaks = seq(15, 85, by = 10),
     right = FALSE,
     include.lowest = TRUE
   )) |>
