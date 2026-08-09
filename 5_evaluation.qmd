@@ -23,7 +23,7 @@ library(semTools)
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+–+Prolific_EFA_24+June+2026_16.04.csv" #TODO: switch to CFA data
+file_path <- "data/TPSai+–+Prolific_CFA+Eval_9+August+2026_11.55.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
@@ -31,7 +31,7 @@ raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
 ```
 
 ```{r}
-questions_map <- read_csv("surveys/efa_qs.csv") #TODO: switch to CFA questions
+questions_map <- read_csv("surveys/cfa_qs.csv")
 cols_tpsai_raw  <- sprintf("TPSAI_%d", seq_len(nrow(questions_map)))
 ```
 
@@ -47,16 +47,13 @@ data.frame(
 ```
 
 ```{r}
-data.frame(
-  id  = cols_tpsai_raw,
-  item = questions_map$Item
-) |> kable()
+questions_map |> kable()
 ```
 
 **Demographic data**
 
 ```{r}
-demog <- list.files("data/demog", full.names = TRUE) |>
+demog <- list.files("data/demog/cfa", full.names = TRUE) |>
   lapply(read_csv, show_col_types = FALSE) |>
   bind_rows() |>
   rename(PROLIFIC_PID = `Participant id`)
@@ -75,6 +72,14 @@ likert_levels <- c(
   "Somewhat agree"             = 5,
   "Agree"                      = 6,
   "Strongly agree"             = 7
+)
+
+likert_levels_5 <- c(
+  "Strongly disagree"          = 1,
+  "Disagree"                   = 2,
+  "Neither agree nor disagree" = 3,
+  "Agree"                      = 4,
+  "Strongly agree"             = 5
 )
 
 overall_levels <- c(
@@ -99,9 +104,9 @@ freq_levels <- c(
 ```{r}
 cols_tpsai <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", cols_tpsai_raw)
 comp_items    <- sprintf("TPSAI_%02d", c(1:9))
-affect_items  <- sprintf("TPSAI_%02d", c(10:16)) #TODO: adjust to CFA data 10:15
-rv_items      <- sprintf("TPSAI_%02d", 17:26) #TODO: adjust to CFA data 16:25
-rs_items      <- sprintf("TPSAI_%02d", 27:31) #TODO: adjust to CFA data 26:30
+affect_items  <- sprintf("TPSAI_%02d", c(10:15))
+rv_items      <- sprintf("TPSAI_%02d", 16:25)
+rs_items      <- sprintf("TPSAI_%02d", 26:30)
 
 item_map <- bind_rows(
   tibble(item = comp_items,   top = "Trust",    sub = "Competence"),
@@ -121,8 +126,15 @@ item_map |> count(top, sub) |> kable(col.names = c("Top-level", "Subfactor", "It
 ```
 
 ```{r}
+ptt_items <- sprintf("PTT_%d", 1:6)
+etmcq_items <- sprintf("ETMCQ_%d", 1:15)
+gaid_items <- sprintf("GAID_%d", 1:11)
+
 eval_data <- raw_data |>
   mutate(across(all_of(cols_tpsai_raw), ~ likert_levels[.x])) |>
+  mutate(across(all_of(etmcq_items), ~ likert_levels[.x])) |>
+  mutate(across(all_of(gaid_items), ~ likert_levels_5[.x])) |>
+  mutate(across(all_of(ptt_items), ~ likert_levels_5[.x])) |>
   rename(all_of(setNames(cols_tpsai_raw, cols_tpsai))) |>
   mutate(
     trust_score = rowMeans(across(all_of(trust_items))),
@@ -139,7 +151,9 @@ eval_data <- raw_data |>
            coalesce(`PLAT-PSY_11_TEXT`, `PLAT-PSY`, `PLAT-GEN_11_TEXT`, `PLAT-GEN`)) |>
   select(
     all_of(cols_tpsai), trust_score, dt_rv_score, dt_rs_score,
-    frequency_level, trust_level, distrust_level, platform, Age)
+    frequency_level, trust_level, distrust_level, 
+    all_of(ptt_items), all_of(etmcq_items), all_of(gaid_items),
+    `PSY-FREQ`, `PSY-SAT`, platform, Age,)
 ```
 
 # Item-level Reporting
@@ -446,7 +460,7 @@ We use the PTT-A short form [@scholz2025] which comprises of the following six *
 **Items:**
 
 | ID | Item | Factor |
-|-----------------|--------------------------------------|-----------------|
+|------------------|-------------------------------------|------------------|
 | ETMCQ_1 | I usually ask people for advice when I have a personal problem. | Trust |
 | ETMCQ_2 | I find information easier to trust and absorb when it comes from someone who knows me well. | Trust |
 | ETMCQ_3 | I’d prefer to find things out for myself on the internet rather than asking people for information. | Mistrust |
@@ -484,7 +498,7 @@ We use the PTT-A short form [@scholz2025] which comprises of the following six *
 **Items:**
 
 | ID | Item | Factor |
-|-------------------|-----------------------------------|-------------------|
+|-------------------|----------------------------------|-------------------|
 | GAID_1 | My decisions are often influenced by generative AI. | Cognitive Preoccupation |
 | GAID_2 | I feel an urge to use generative AI, even when it may not be necessary. | Cognitive Preoccupation |
 | GAID_3 | I look forward to using generative AI, even if it is unrelated to the task at hand. | Cognitive Preoccupation |
@@ -540,52 +554,13 @@ instrument_map <- bind_rows(
 )
 ```
 
-```{r}
-# Simulating data from additional instruments that will be collected only during CFA
-# TODO: remove when running analysis on CFA data
-set.seed(2026)
-
-pop_model <- '
-  PTT             =~ 0.7*PTT_1 + 0.7*PTT_2 + 0.7*PTT_3 + 0.7*PTT_4 + 0.7*PTT_5 + 0.7*PTT_6
-  ETMCQ_Trust     =~ 0.7*ETMCQ_1 + 0.7*ETMCQ_2 + 0.7*ETMCQ_7 + 0.7*ETMCQ_8 + 0.7*ETMCQ_13
-  ETMCQ_Mistrust  =~ 0.6*ETMCQ_3 + 0.6*ETMCQ_4 + 0.6*ETMCQ_9 + 0.6*ETMCQ_10 + 0.6*ETMCQ_14
-  ETMCQ_Credulity =~ 0.7*ETMCQ_5 + 0.7*ETMCQ_6 + 0.7*ETMCQ_11 + 0.7*ETMCQ_12 + 0.7*ETMCQ_15
-  GAID_CogPre     =~ 0.7*GAID_1 + 0.7*GAID_2 + 0.7*GAID_3
-  GAID_NegCons    =~ 0.7*GAID_4 + 0.7*GAID_5 + 0.7*GAID_6 + 0.7*GAID_7
-  GAID_Withdraw   =~ 0.7*GAID_8 + 0.7*GAID_9 + 0.7*GAID_10 + 0.7*GAID_11
-
-  PTT ~~ 0.3*ETMCQ_Trust + 0.3*ETMCQ_Mistrust + 0.3*ETMCQ_Credulity
-  PTT ~~ 0.3*GAID_CogPre + 0.3*GAID_NegCons + 0.3*GAID_Withdraw
-  ETMCQ_Trust ~~ 0.3*ETMCQ_Mistrust + 0.3*ETMCQ_Credulity + 0.3*GAID_CogPre + 0.3*GAID_NegCons + 0.3*GAID_Withdraw
-  ETMCQ_Mistrust ~~ 0.3*ETMCQ_Credulity + 0.3*GAID_CogPre + 0.3*GAID_NegCons + 0.3*GAID_Withdraw
-  ETMCQ_Credulity ~~ 0.3*GAID_CogPre + 0.3*GAID_NegCons + 0.3*GAID_Withdraw
-  GAID_CogPre ~~ 0.3*GAID_NegCons + 0.3*GAID_Withdraw
-  GAID_NegCons ~~ 0.3*GAID_Withdraw
-'
-
-sim_cont <- lavaan::simulateData(pop_model, sample.nobs = nrow(eval_data))
-
-# discretise with SKEWED thresholds
-cut_skew <- function(x, k) {
-  probs <- if (k == 5) c(.05, .15, .25, .30, .25) else c(.03, .05, .10, .17, .25, .25, .15)
-  as.integer(cut(x, breaks = c(-Inf, qnorm(cumsum(head(probs, -1))), Inf)))
-}
-
-sim_data <- sim_cont |>
-  mutate(across(starts_with("ETMCQ_"), \(x) cut_skew(x, 7)),
-         across(c(starts_with("PTT_"), starts_with("GAID_")), \(x) cut_skew(x, 5)))
-
-eval_sim <- bind_cols(eval_data, sim_data)   # real TPSai + fake comparators
-```
-
 ### Correlations
 
 Scale scores for the comparison instruments are computed as the mean of their constituent items, following the scoring procedures specified by the original authors. PTT-A items 2, 4, and 5 are reverse-coded as 6 − x prior to scoring; no items are reversed in the ETMCQ or the generative AI dependency scale. For the ETMCQ and the dependency scale we compute factor scores only, given their established multidimensional structure, with an additional overall dependency score as the mean of its three factor scores; for the PTT-A short form we compute a single score, given its unidimensional nature.
 
 ```{r}
-# TODO: replace eval_sim with eval_data throughout
 # reverse-code PTT-A items 2, 4, 5 BEFORE scoring
-eval_sim <- eval_sim |>
+eval_data <- eval_data |>
   mutate(across(all_of(sprintf("PTT_%d", c(2, 4, 5))), ~ 6 - .x))
 
 score_factors <- function(data, map) {
@@ -595,13 +570,13 @@ score_factors <- function(data, map) {
     bind_cols()
 }
 
-comparison_scores <- score_factors(eval_sim, filter(instrument_map, instrument != "TPSai"))
+comparison_scores <- score_factors(eval_data, filter(instrument_map, instrument != "TPSai"))
 
 # GAID overall = mean of its three factor scores (per Goh et al.)
 comparison_scores <- comparison_scores |>
   mutate(GAID_Overall = rowMeans(across(starts_with("GAID_"))))
 
-sec3 <- eval_sim |>
+sec3 <- eval_data |>
   select(trust_score, dt_rv_score, dt_rs_score) |>
   bind_cols(comparison_scores)
 ```
@@ -640,7 +615,7 @@ omegas <- c(
   trust_score = 0.966, dt_rv_score = 0.914, dt_rs_score = 0.830,  # ω from CFA (m3)
   # TODO: replace with updated CFA data
   map_dbl(setdiff(other_cols, "GAID_Overall"),
-          \(f) omega_for(eval_sim, instrument_map, f)) |>
+          \(f) omega_for(eval_data, instrument_map, f)) |>
     setNames(setdiff(other_cols, "GAID_Overall"))
 )
 
@@ -728,16 +703,15 @@ Thresholds are assigned in advance by pair:
 HTMT is evaluated as a point estimate against the thresholds above. We do not compute confidence intervals, as no analytic standard error exists for HTMT and bootstrap estimation over polychoric correlations is computationally prohibitive at this number of items.
 
 ```{r}
-# TODO: replace with eval_data
-htmt(htmt_model, data = eval_sim, ordered = TRUE, absolute = TRUE)
+htmt(htmt_model, data = eval_data, ordered = TRUE, absolute = TRUE)
 ```
 
 # Test-Retest Reliability
 
 We compute test-retest reliability using a follow-up sample of N = 100 respondents who re-completed TPSai one week after the CFA.
 
-```{r}
-# TODO: replace with retest data joined on PROLIFIC_PID
+```{r, eval=FALSE}
+# TODO: replace with retest data when available joined on PROLIFIC_PID
 set.seed(42)
 paired <- eval_data |>
   select(trust_score, dt_rv_score, dt_rs_score) |>
@@ -755,7 +729,7 @@ We evaluate test-retest reliability via:
 
 - **ICC/ω**, the proportion of *reliable* variance that is stable across occasions. A score cannot be more stable than it is reliable, so raw ICCs are not comparable across subscales of differing reliability. ICC ≈ ω indicates that no systematic variance is changing; ICC ≪ ω indicates reliable variance that moves between occasions, which is the situational signal.
 
-```{r}
+```{r, eval=FALSE}
 omegas <- c(trust_score = 0.966, dt_rv_score = 0.914, dt_rs_score = 0.830)
 
 map_dfr(names(omegas), \(s) {
@@ -836,26 +810,6 @@ eval_data |>
 **Analysis:** plot scale scores across the levels of both Q1 and Q2, checking for any trends and substantial differences between levels. Exploratory analysis with no pre-registered hypothesis.
 
 ```{r}
-# TODO: replace with PSY-FREQ / PSY-SAT from raw_data
-set.seed(42)
-psy_freq_levels <- c("Never", "1–5 sessions", "6–20 sessions",
-                     "21–50 sessions", "50+ sessions")
-psy_sat_levels  <- c("Very dissatisfied", "Dissatisfied", "Neutral",
-                     "Satisfied", "Very satisfied")
-
-psy_data <- eval_data |>
-  mutate(
-    psy_freq = factor(sample(psy_freq_levels, n(), replace = TRUE,
-                             prob = c(.35, .25, .20, .12, .08)),
-                      levels = psy_freq_levels, ordered = TRUE),
-    psy_sat  = if_else(psy_freq == "Never", NA_character_,
-                       sample(psy_sat_levels, n(), replace = TRUE,
-                              prob = c(.05, .10, .20, .40, .25))),
-    psy_sat  = factor(psy_sat, levels = psy_sat_levels, ordered = TRUE)
-  )
-```
-
-```{r}
 plot_psy <- function(data, var, xlab) {
   data |>
     filter(!is.na({{ var }})) |>
@@ -880,11 +834,11 @@ plot_psy <- function(data, var, xlab) {
 ```
 
 ```{r}
-plot_psy(psy_data, psy_freq, "Lifetime psychotherapy exposure")
+plot_psy(eval_data, `PSY-FREQ`, "Lifetime psychotherapy exposure")
 ```
 
 ```{r}
-plot_psy(psy_data, psy_sat, "Satisfaction with psychotherapy")
+plot_psy(eval_data, `PSY-SAT`, "Psychotherapy satisfaction")
 ```
 
 ## Age

@@ -20,7 +20,7 @@ library(knitr)
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+–+Prolific_EFA_24+June+2026_16.04.csv" #TODO: switch to CFA data
+file_path <- "data/TPSai+–+Prolific_CFA+Eval_9+August+2026_11.55.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
@@ -28,7 +28,7 @@ raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
 ```
 
 ```{r}
-questions_map <- read_csv("surveys/efa_qs.csv") #TODO: switch to CFA questions
+questions_map <- read_csv("surveys/cfa_qs.csv")
 cols_tpsai_raw  <- sprintf("TPSAI_%d", seq_len(nrow(questions_map)))
 ```
 
@@ -44,16 +44,13 @@ data.frame(
 ```
 
 ```{r}
-data.frame(
-  id  = cols_tpsai_raw,
-  item = questions_map$Item
-) |> kable()
+questions_map |> kable()
 ```
 
 **Demographic data**
 
 ```{r}
-demog <- list.files("data/demog", full.names = TRUE) |>
+demog <- list.files("data/demog/cfa", full.names = TRUE) |>
   lapply(read_csv, show_col_types = FALSE) |>
   bind_rows() |>
   rename(PROLIFIC_PID = `Participant id`)
@@ -124,9 +121,9 @@ We also decided to test an additional model, that is a bi-factor model with a si
 
 ```{r}
 comp_items    <- sprintf("TPSAI_%02d", c(1:9))
-affect_items  <- sprintf("TPSAI_%02d", c(10:16)) #TODO: adjust to CFA data 10:15
-rv_items      <- sprintf("TPSAI_%02d", 17:26) #TODO: adjust to CFA data 16:25
-rs_items      <- sprintf("TPSAI_%02d", 27:31) #TODO: adjust to CFA data 26:30
+affect_items  <- sprintf("TPSAI_%02d", c(10:15))
+rv_items      <- sprintf("TPSAI_%02d", 16:25)
+rs_items      <- sprintf("TPSAI_%02d", 26:30)
 
 item_map <- bind_rows(
   tibble(item = comp_items,   top = "Trust",    sub = "Competence"),
