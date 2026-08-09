@@ -23,7 +23,7 @@ library(semTools)
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+–+Prolific_CFA+Eval_9+August+2026_18.59.csv"
+file_path <- "data/TPSai+–+Prolific_CFA+Eval_9+August+2026_22.23.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
@@ -668,8 +668,7 @@ omega_for <- function(data, map, fname) {
 }
 
 omegas <- c(
-  trust_score = 0.955, risk_score = 0.910, rel_scept_score = 0.857,  # ω from CFA (m3)
-  # TODO: replace with updated CFA data
+  trust_score = 0.96, risk_score = 0.912, rel_scept_score = 0.859,  # ω from CFA (m3)
   map_dbl(setdiff(other_cols, "GAID_Overall"),
           \(f) omega_for(eval_data, instrument_map, f)) |>
     setNames(setdiff(other_cols, "GAID_Overall"))
