@@ -154,7 +154,8 @@ eval_data <- raw_data |>
     all_of(cols_tpsai), trust_score, risk_score, rel_scept_score,
     frequency_level, trust_level, distrust_level, 
     all_of(ptt_items), all_of(etmcq_items), all_of(gaid_items),
-    `PSY-FREQ`, `PSY-SAT`, platform, Age,)
+    `PSY-FREQ`, `PSY-SAT`, platform, Age,
+    `PROLIFIC_PID`)
 ```
 
 # Item-level Reporting
@@ -763,13 +764,28 @@ htmt(htmt_model, data = eval_data, ordered = TRUE, absolute = TRUE)
 
 We compute test-retest reliability using a follow-up sample of N = 100 respondents who re-completed TPSai one week after the CFA.
 
-```{r, eval=FALSE}
-# TODO: replace with retest data when available joined on PROLIFIC_PID
-set.seed(42)
-paired <- eval_data |>
-  select(trust_score, risk_score, rel_scept_score) |>
-  slice_sample(n = 100) |>
-  mutate(across(everything(), \(x) x + rnorm(100, 0, 0.5), .names = "{.col}_t2"))
+```{r}
+retest_file_path <- "data/TPSai+–+Prolific_Retest_16+August+2026_22.07.csv"
+raw_retest_data  <- read_csv(retest_file_path, n_max = 2)
+retest_colnames  <- names(raw_retest_data)
+raw_retest_data  <- read_csv(retest_file_path, col_names = retest_colnames, skip = 3)
+```
+
+```{r}
+cols_tpsai_retest <- paste0(cols_tpsai, "_t2")
+trust_items_retest <- sprintf("TPSAI_%02d_t2", 1:15)
+rv_items_retest <- sprintf("TPSAI_%02d_t2", 16:25)
+rs_items_retest  <- sprintf("TPSAI_%02d_t2", 26:30)
+
+paired <- raw_retest_data |>
+  mutate(across(all_of(cols_tpsai_raw), ~ likert_levels[.x])) |>
+  rename(all_of(setNames(cols_tpsai_raw, cols_tpsai_retest))) |>
+  mutate(
+    trust_score_t2 = rowMeans(across(all_of(trust_items_retest))),
+    risk_score_t2 = rowMeans(across(all_of(rv_items_retest))),
+    rel_scept_score_t2 = rowMeans(across(all_of(rs_items_retest)))
+  ) |>
+  left_join(eval_data, by = "PROLIFIC_PID")
 ```
 
 We evaluate test-retest reliability via:
@@ -782,8 +798,8 @@ We evaluate test-retest reliability via:
 
 - **ICC/ω**, the proportion of *reliable* variance that is stable across occasions. A score cannot be more stable than it is reliable, so raw ICCs are not comparable across subscales of differing reliability. ICC ≈ ω indicates that no systematic variance is changing; ICC ≪ ω indicates reliable variance that moves between occasions, which is the situational signal.
 
-```{r, eval=FALSE}
-omegas <- c(trust_score = 0.966, risk_score = 0.914, rel_scept_score = 0.830)
+```{r}
+omegas <- c(trust_score = 0.96, risk_score = 0.912, rel_scept_score = 0.859)
 
 map_dfr(names(omegas), \(s) {
   x   <- paired[[s]]
@@ -796,14 +812,13 @@ map_dfr(names(omegas), \(s) {
     r         = cor(x, y),
     ICC       = icc$ICC,
     ci        = sprintf("[%.3f, %.3f]", icc$`lower bound`, icc$`upper bound`),
-    omega     = omegas[[s]],
     icc_omega = icc$ICC / omegas[[s]],
     SEm       = sem,
     RCI       = 2.77 * sem
   )
 }) |>
   kable(digits = 3,
-        col.names = c("Scale", "r", "ICC(2,1)", "95% CI", "ω", "ICC/ω", "SE~m~", "RCI"))
+        col.names = c("Scale", "r", "ICC(2,1)", "95% CI", "ICC/ω", "SE~m~", "RCI"))
 ```
 
 The criteria pull against each other: a high ICC supports retest reliability but weakens the claim that TPSai is situational, since it indicates the score is largely a stable person characteristic. We interpret retest stability relative to the PTT-A short form [@scholz2025], which reports r\~TT\~ = .71 over approximately one year (ω = .83). Because our interval is one week, a comparable or lower TPSai value would indicate *less* stability than an explicitly dispositional measure, supporting the situational interpretation; a substantially higher value is expected on interval alone and is therefore not by itself evidence of trait-likeness. We compare the ratio of stability to internal consistency rather than the raw coefficient, and use the Pearson correlation for this comparison since the published value is a Pearson r.
