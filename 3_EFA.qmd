@@ -171,7 +171,7 @@ We use the MAP test and scree plot elbow as our primary criteria. If both agree,
 
 ```{r}
 # Set number of factors based on MAP and scree plot
-n_factors <- 2  # replace with chosen number after inspecting criteria
+n_factors <- 3  # replace with chosen number after inspecting criteria
 ```
 
 Based on this, we arrive at a suggested number of factors and proceed as follows:

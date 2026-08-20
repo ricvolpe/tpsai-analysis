@@ -500,7 +500,6 @@ plot_loadings(m3_loadings)
 Reliability metrics evaluate the internal consistency of the latent factors based on the estimated CFA model parameters. We compute both Cronbach's Alpha (α) and McDonald's Omega (ω) for the selected models to assess how well each factor's items measure the underlying construct. Generally, reliability coefficients of 0.70 or higher are considered acceptable for research purposes, with 0.80 or higher preferred for high-stakes applications. Conversely, coefficients above roughly 0.95 can indicate item redundancy rather than superior measurement, since near-paraphrased items inflate internal consistency while adding little construct coverage; we therefore read very high values as a signal to inspect item content rather than as evidence of quality.
 
 ```{r}
-rel_m2 <- reliability(m2)
 rel_m3 <- reliability(m3)
 ```
 
@@ -509,44 +508,248 @@ All coefficients are based on **ordinal indicators** (7-point Likert scale), so 
 ```{r}
 bind_rows(
   tibble(
-    Model = "M2",
-    Factor = "Distrust",
-    `α.ord` = round(rel_m2["alpha.ord", "Distrust"], 3),
-    `ω` = round(rel_m2["omega", "Distrust"], 3)
-  ),
-  tibble(
-    Model = "M2",
     Factor = "Trust",
-    `α.ord` = round(rel_m2["alpha.ord", "Trust"], 3),
-    `ω` = round(rel_m2["omega", "Trust"], 3)
+    `α.ord` = round(rel_m3["alpha.ord", "Trust"], 3),
+    `ω` = round(rel_m3["omega", "Trust"], 3)
   ),
   tibble(
-    Model = "M3",
     Factor = "RiskVigilance",
     `α.ord` = round(rel_m3["alpha.ord", "RiskVigilance"], 3),
     `ω` = round(rel_m3["omega", "RiskVigilance"], 3)
   ),
   tibble(
-    Model = "M3",
     Factor = "RelationalScepticism",
     `α.ord` = round(rel_m3["alpha.ord", "RelationalScepticism"], 3),
     `ω` = round(rel_m3["omega", "RelationalScepticism"], 3)
   )
-) |> kable(col.names = c("Model", "Factor", "α.ord", "ω"))
+) |> kable(col.names = c("Factor", "α.ord", "ω"))
 ```
 
-# Unexplained Variance
+# Item Diagnostics
 
-For transparency in reporting, when fitting models is also interesting to ask what variance they do not capture. Since global indices can mask localised misfit, we can inspect the largest standardised residual correlations. While we do not plan to use the results of standardised residual correlations in any specific modelling decisions, we compute and report them to interpreter their relative fit.
+Before deciding which items to drop, we examine standardised factor loadings and unexplained variance (residual correlations). Items that load weakly or contribute to large residual correlations are candidates for removal.
 
 ```{r}
-resid_cor <- residuals(m3, type = "cor")$cov
-resid_cor[upper.tri(resid_cor, diag = TRUE)] <- NA
+# Standardised residual correlations
+resid_cor_m3 <- residuals(m3, type = "cor")$cov
+resid_cor_m3[upper.tri(resid_cor_m3, diag = TRUE)] <- NA
 
-as.data.frame(as.table(resid_cor)) |>
+resid_df <- as.data.frame(as.table(resid_cor_m3)) |>
   filter(!is.na(Freq)) |>
-  arrange(desc(abs(Freq))) |>
-  head(10) |>
-  transmute(item_1 = Var1, item_2 = Var2, residual_r = round(Freq, 3)) |>
+  mutate(abs_resid = abs(Freq)) |>
+  arrange(desc(abs_resid))
+
+# Items appearing in high residual correlations
+item_resid_freq <- bind_rows(
+  resid_df |> rename(item = Var1) |> select(item, abs_resid),
+  resid_df |> rename(item = Var2) |> select(item, abs_resid)
+) |>
+  group_by(item) |>
+  summarise(
+    mean_abs_resid = mean(abs_resid),
+    max_abs_resid = max(abs_resid),
+    .groups = "drop"
+  )
+
+# Combine diagnostics
+std_sol <- standardizedSolution(m3, type = "std.all")
+loadings_df <- std_sol[std_sol$op == "=~", c("rhs", "lhs", "est.std")]
+
+item_diagnostics <- loadings_df |>
+  rename(item = rhs, factor = lhs, loading = est.std) |>
+  mutate(abs_loading = abs(loading)) |>
+  select(item, loading, abs_loading) |>
+  left_join(item_resid_freq, by = "item") |>
+  left_join(item_map |> select(item, sub3) |> distinct(), by = "item") |>
+  arrange(abs_loading) |>
+  mutate(across(where(is.numeric), ~round(., 3)))
+
+item_diagnostics |>
+  kable(
+    col.names = c("Item", "Loading", "|Loading|", "Mean Abs Resid", "Max Abs Resid", "Factor"),
+    digits = 3
+  )
+```
+
+**Interpretation:** Items with low loadings and/or high residual correlations suggest potential issues. The table is sorted by absolute loading (lowest first). Items with *both* low loadings *and* high residual correlations are prime candidates for removal, as they contribute little to the factor while leaving unexplained covariance.
+
+# Scale Refinement
+
+We refine the item set based on two criteria:
+
+1.  **Weak indicators**: Items with top standardised loading \< 0.75
+2.  **Redundant items**: Items appearing in 3 or more pairs with within-factor correlations \> 0.75
+
+This removes both weak measurement and multicollinearity while preserving strong, non-redundant indicators.
+
+**Items to be dropped:**
+
+```{r}
+weak_threshold <- 0.7
+corr_threshold <- 0.7
+
+# Recalculate inter-item correlations and redundancy for this section
+implied_cor <- fitted(m3)$cov
+
+cor_long <- as.data.frame(as.table(implied_cor)) |>
+  as_tibble() |>
+  rename(item1 = Var1, item2 = Var2, correlation = Freq) |>
+  mutate(
+    i = match(item1, rownames(implied_cor)),
+    j = match(item2, colnames(implied_cor))
+  ) |>
+  filter(i < j, !is.na(correlation)) |>
+  select(item1, item2, correlation)
+
+cor_pairs <- cor_long |>
+  left_join(
+    item_map |> select(item, sub3) |> distinct() |> rename(item1 = item, factor1 = sub3),
+    by = "item1"
+  ) |>
+  left_join(
+    item_map |> select(item, sub3) |> distinct() |> rename(item2 = item, factor2 = sub3),
+    by = "item2"
+  ) |>
+  filter(factor1 == factor2) |>
+  rename(factor = factor1) |>
+  select(item1, item2, correlation, factor) |>
+  mutate(abs_correlation = abs(correlation)) |>
+  arrange(desc(abs_correlation))
+
+high_cor_items <- bind_rows(
+  cor_pairs |> filter(abs_correlation > corr_threshold) |> rename(item = item1),
+  cor_pairs |> filter(abs_correlation > corr_threshold) |> rename(item = item2)
+) |>
+  group_by(item) |>
+  summarise(
+    n_high_cors = n(),
+    max_correlation = max(abs_correlation),
+    mean_correlation = mean(abs_correlation),
+    .groups = "drop"
+  ) |>
+  arrange(desc(n_high_cors))
+
+# Identify weak items (top loading < 0.70)
+weak_items <- loadings_df |>
+  rename(item = rhs, loading = est.std) |>
+  filter(abs(loading) < weak_threshold) |>
+  pull(item) |>
+  sort()
+
+# Identify redundant items (3+ pairs with r > 0.75)
+redundant_items_to_drop <- high_cor_items |>
+  filter(n_high_cors >= 3) |>
+  pull(item) |>
+  sort()
+
+# Combine the two lists
+items_to_drop <- union(weak_items, redundant_items_to_drop)
+
+cat("Weak items:\n")
+print(weak_items)
+cat("\nRedundant items:\n")
+print(redundant_items_to_drop)
+cat("\nTotal items to drop:", length(items_to_drop), "\n")
+cat("Items dropped:", paste(items_to_drop, collapse = ", "), "\n")
+cat("Items retained:", length(cols_tpsai) - length(items_to_drop), "\n")
+```
+
+```{r}
+cols_tpsai_refined <- setdiff(cols_tpsai, items_to_drop)
+cfa_data_refined <- cfa_data |> select(all_of(cols_tpsai_refined))
+
+# Update item_map for the refined set
+item_map_refined <- item_map |> filter(item %in% cols_tpsai_refined)
+```
+
+**Refined model specifications and fitting:**
+
+```{r}
+m1_syn_refined <- syntax_1f(item_map_refined, "uni")
+m2_syn_refined <- syntax_cf(item_map_refined, "top")
+m3_syn_refined <- syntax_cf(item_map_refined, "sub3")
+m4_syn_refined <- syntax_cf(item_map_refined, "sub")
+
+m1b_syn_refined <- paste0(
+  "general =~ ", paste(item_map_refined$item, collapse = " + "), "\n",
+  "specific  =~ ", paste(intersect(item_map_refined$item, distrust_items), collapse = " + "), "\n",
+  "specific ~~ 0*general"
+)
+```
+
+```{r}
+fit_cfa_refined <- function(synthax) {
+  cfa(synthax, data = cfa_data_refined, ordered = cols_tpsai_refined, estimator = "WLSMV")
+}
+
+m1_ref <- fit_cfa_refined(m1_syn_refined)
+m1b_ref <- fit_cfa_refined(m1b_syn_refined)
+m2_ref <- fit_cfa_refined(m2_syn_refined)
+m3_ref <- fit_cfa_refined(m3_syn_refined)
+m4_ref <- fit_cfa_refined(m4_syn_refined)
+```
+
+**Comparison of fit criteria (original vs. refined):**
+
+```{r}
+fit_table(list(m1_ref, m1b_ref, m2_ref, m3_ref, m4_ref), c("M1", "M1b", "M2", "M3", "M4")) |>
+  select(model, chisq, df, CFI, TLI, RMSEA, SRMR) |>
   kable()
+```
+
+**Model comparisons (refined dataset):**
+
+```{r}
+comparisons_ref <- bind_rows(
+  compare_adjacent(m1_ref, m2_ref, c("M1", "M2"), "Trust", "Distrust"),
+  compare_adjacent(m2_ref, m3_ref, c("M2", "M3"), "RiskVigilance", "RelationalScepticism"),
+  compare_adjacent(m3_ref, m4_ref, c("M3", "M4"), "Competence", "Affective")
+)
+
+comparisons_ref |>
+  select(comparison, chisq_diff, df_diff, p_value, phi, phi_ci, dCFI) |>
+  kable(
+    col.names = c("Comparison", "Δχ²", "Δdf", "p", "φ", "φ 95% CI", "ΔCFI"),
+    digits = 3
+  )
+```
+
+**Reliability comparison (M3: original vs. refined):**
+
+```{r}
+rel_m3_ref <- reliability(m3_ref)
+
+bind_rows(
+  tibble(
+    Factor = "Trust",
+    `α.ord` = round(rel_m3_ref["alpha.ord", "Trust"], 3),
+    `ω` = round(rel_m3_ref["omega", "Trust"], 3)
+  ),
+  tibble(
+    Factor = "RiskVigilance",
+    `α.ord` = round(rel_m3_ref["alpha.ord", "RiskVigilance"], 3),
+    `ω` = round(rel_m3_ref["omega", "RiskVigilance"], 3)
+  ),
+  tibble(
+    Factor = "RelationalScepticism",
+    `α.ord` = round(rel_m3_ref["alpha.ord", "RelationalScepticism"], 3),
+    `ω` = round(rel_m3_ref["omega", "RelationalScepticism"], 3)
+  )
+) |> kable(col.names = c("Factor", "α.ord", "ω"))
+```
+
+```{r}
+m3_ref_loadings <- lavaan::standardizedSolution(m3_ref, type = "std.all") |>
+  subset(op == "=~") |>
+  pivot_wider(
+    names_from = "lhs",
+    values_from = "est.std",
+    id_cols = "rhs"
+  ) |>
+  column_to_rownames("rhs") |>
+  as.matrix()
+```
+
+```{r, fig.height=8, fig.width=6}
+plot_loadings(m3_ref_loadings)
 ```
