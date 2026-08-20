@@ -9,11 +9,11 @@ Trust,Personalisation,PERS_02,7,I trust the AI to give me advice that is well-ta
 Trust,Personalisation,PERS_03,8,"I trust that the more information the AI has about me, the better it can support me"
 Trust,Personalisation,PERS_04,9,I trust the AI to help me gain new insights into my issues
 Trust,Personalisation,PERS_05,10,I trust the AI to remind me of things that could help me feel better when I cannot think of them
-Trust,Artificial Empathy,EMOT_01,11,I trust the AI to reflect the feelings I share in a way that feels accurate
-Trust,Artificial Empathy,EMOT_02,12,I trust the AI to make me feel heard and validated
-Trust,Artificial Empathy,EMOT_03,13,I trust the AI to help me shift from negative to positive emotions
-Trust,Artificial Empathy,EMOT_04,14,I trust the AI to help me feel more confident in my ability to handle a difficult situation
-Trust,Artificial Empathy,EMOT_05,15,I trust the AI to adjust its responses appropriately as my emotions change during our conversation
+Trust,Emotional Intelligence,EMOT_01,11,I trust the AI to reflect the feelings I share in a way that feels accurate
+Trust,Emotional Intelligence,EMOT_02,12,I trust the AI to make me feel heard and validated
+Trust,Emotional Intelligence,EMOT_03,13,I trust the AI to help me shift from negative to positive emotions
+Trust,Emotional Intelligence,EMOT_04,14,I trust the AI to help me feel more confident in my ability to handle a difficult situation
+Trust,Emotional Intelligence,EMOT_05,15,I trust the AI to adjust its responses appropriately as my emotions change during our conversation
 Trust,Psychological Safety,SAFE_01,16,I feel comfortable sharing my private and sensitive information with the AI
 Trust,Psychological Safety,SAFE_02,17,I feel safe opening up to the AI about anything that is on my mind
 Trust,Psychological Safety,SAFE_03,18,I trust that the AI responses are free from harmful social stereotypes
@@ -34,8 +34,8 @@ Distrust,Critical Engagement,CRIT_02,32,It is up to me to guide the AI to give r
 Distrust,Critical Engagement,CRIT_03,33,I trust AI responses less as conversations get longer and the AI starts to 'drift'
 Distrust,Critical Engagement,CRIT_04,34,"When in doubt, I would trust my own experience over what the AI tells me"
 Distrust,Critical Engagement,CRIT_05,35,I feel the need to verify the AI's sources when the information is important
-Distrust,Sentience Attribution,HUMN_01,36,The AI cannot replace human connections for emotional support
-Distrust,Sentience Attribution,HUMN_02,37,"Even though the AI sounds human, our interactions lack the shared experience of human connections"
-Distrust,Sentience Attribution,HUMN_03,38,The emotional support the AI can offer is limited by its lack of embodied feelings and shared presence
-Distrust,Sentience Attribution,HUMN_04,39,"While the AI uses empathic language, it cannot care about my wellbeing as a good friend would"
-Distrust,Sentience Attribution,HUMN_05,40,"Even though I can talk with the AI about my feelings, it does not experience emotions the way I do"
+Distrust,Artificial Humanness,HUMN_01,36,The AI cannot replace human connections for emotional support
+Distrust,Artificial Humanness,HUMN_02,37,"Even though the AI sounds human, our interactions lack the shared experience of human connections"
+Distrust,Artificial Humanness,HUMN_03,38,The emotional support the AI can offer is limited by its lack of embodied feelings and shared presence
+Distrust,Artificial Humanness,HUMN_04,39,"While the AI uses empathic language, it cannot care about my wellbeing as a good friend would"
+Distrust,Artificial Humanness,HUMN_05,40,"Even though I can talk with the AI about my feelings, it does not experience emotions the way I do"
