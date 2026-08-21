@@ -248,7 +248,7 @@ plot_loadings <- function(loadings, by_factor = FALSE) {
 
 ```{r}
 #| fig-width: 4
-#| fig-height: 12
+#| fig-height: 7
 plot_loadings(efa$loadings)
 ```
 

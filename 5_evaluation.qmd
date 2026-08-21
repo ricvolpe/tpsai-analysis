@@ -139,7 +139,7 @@ eval_data <- raw_data |>
   rename(all_of(setNames(cols_tpsai_raw, cols_tpsai))) |>
   mutate(
     trust_score = rowMeans(across(all_of(trust_items))),
-    risk_score = rowMeans(across(all_of(rv_items))),
+    distrust_score = rowMeans(across(all_of(rv_items))),
     rel_scept_score = rowMeans(across(all_of(rs_items)))
   ) |>
   mutate(
@@ -151,7 +151,7 @@ eval_data <- raw_data |>
   mutate(platform = 
            coalesce(`PLAT-PSY_11_TEXT`, `PLAT-PSY`, `PLAT-GEN_11_TEXT`, `PLAT-GEN`)) |>
   select(
-    all_of(cols_tpsai), trust_score, risk_score, rel_scept_score,
+    all_of(cols_tpsai), trust_score, distrust_score, rel_scept_score,
     frequency_level, trust_level, distrust_level, 
     all_of(ptt_items), all_of(etmcq_items), all_of(gaid_items),
     `PSY-FREQ`, `PSY-SAT`, platform, Age,
@@ -193,12 +193,12 @@ eval_data |>
   mutate(
     factor = case_when(
       item %in% trust_items ~ "Trust",
-      item %in% rv_items ~ "Risk Vigilance",
+      item %in% rv_items ~ "Distrust",
       item %in% rs_items ~ "Relational Scepticism",
       .default = NA_character_
     )
   ) |>
-  mutate(factor = factor(factor, levels = c("Trust", "Risk Vigilance", "Relational Scepticism"))) |>
+  mutate(factor = factor(factor, levels = c("Trust", "Distrust", "Relational Scepticism"))) |>
   ggplot(aes(x = item, y = response, fill = factor)) +
   geom_boxplot(alpha = 0.7) +
   scale_y_continuous(limits = c(1, 7), breaks = 1:7) +
@@ -215,15 +215,15 @@ eval_data |>
 ```{r, fig.height=3, fig.width=8}
 eval_data |>
   pivot_longer(
-    cols = c(trust_score, risk_score, rel_scept_score),
+    cols = c(trust_score, distrust_score, rel_scept_score),
     names_to = "factor",
     values_to = "score"
   ) |>
   mutate(
     factor = factor(
       factor,
-      levels = c("trust_score", "risk_score", "rel_scept_score"),
-      labels = c("Trust", "Risk Vigilance (Distrust)", "Relational Scepticism (Distrust)")
+      levels = c("trust_score", "distrust_score", "rel_scept_score"),
+      labels = c("Trust", "Distrust", "Relational Scepticism")
     )
   ) |>
   ggplot(aes(x = score, fill = factor)) +
@@ -240,7 +240,7 @@ eval_data |>
 ```{r}
 factors_data <- eval_data |>
   select(
-    trust_score, risk_score, rel_scept_score
+    trust_score, distrust_score, rel_scept_score
   )
 
 cor(factors_data)
@@ -309,7 +309,7 @@ overalls_plot
 ```{r}
 single_items_data <- eval_data |>
   transmute(
-    trust_score, risk_score, rel_scept_score,
+    trust_score, distrust_score, rel_scept_score,
     trust_level    = ordered(trust_level,    levels = 1:7),
     distrust_level = ordered(distrust_level, levels = 1:7)
   ) |>
@@ -373,12 +373,12 @@ eval_data |>
   kable(col.names = c("Frequency group", "Domain", "Unused rating", "Items"))
 ```
 
-*Pre-registration*: we are expecting scale scores to have moderately correlations (0.3 - 0.7) with frequency of use, suggesting some that TPSai scales have some predictive power over how often people use generative AI for psychological support. More specifically, trust should have be positively correlated while distrust subscale (risk vigilance and relational scepticism) should be negatively correlated.
+*Pre-registration*: we are expecting scale scores to have moderately correlations (0.3 - 0.7) with frequency of use, suggesting some that TPSai scales have some predictive power over how often people use generative AI for psychological support. More specifically, trust should have be positively correlated while distrust subscale (Distrust and relational scepticism) should be negatively correlated.
 
 ```{r}
 freq_data <- eval_data |>
   transmute(
-    trust_score, risk_score, rel_scept_score,
+    trust_score, distrust_score, rel_scept_score,
     frequency_level = ordered(frequency_level, levels = 1:5)
   ) |>
   as.data.frame()
@@ -405,7 +405,7 @@ We also display plots displaying the scale scores over the order of frequency us
 ```{r}
 freq_scores <- eval_data |>
   mutate(frequency_level = factor(frequency_level, levels = 1:5, labels = freq_levels)) |>
-  pivot_longer(cols = c(trust_score, risk_score, rel_scept_score), 
+  pivot_longer(cols = c(trust_score, distrust_score, rel_scept_score), 
                names_to = "scale", values_to = "score") |>
   group_by(frequency_level, scale) |>
   summarise(mean_score = mean(score),
@@ -442,7 +442,7 @@ freq_scores_wide |> kable(digits = 2)
 freq_scores_wide <- freq_scores_wide |>
   mutate(
     trust_delta = trust_score - lag(trust_score),
-    rv_delta = risk_score - lag(risk_score),
+    rv_delta = distrust_score - lag(distrust_score),
     rs_delta = rel_scept_score - lag(rel_scept_score)
   )
 
@@ -464,7 +464,7 @@ bind_rows(
   tibble(
     comparison = "Daily vs Never",
     trust_delta = freq_scores_wide$trust_score[5] - freq_scores_wide$trust_score[1],
-    rv_delta = freq_scores_wide$risk_score[5] - freq_scores_wide$risk_score[1],
+    rv_delta = freq_scores_wide$distrust_score[5] - freq_scores_wide$distrust_score[1],
     rs_delta = freq_scores_wide$rel_scept_score[5] - freq_scores_wide$rel_scept_score[1]
   )
 ) |> kable(digits = 2,)
@@ -535,9 +535,9 @@ We use the PTT-A short form [@scholz2025] which comprises of the following six *
 
 - Trust should positively relate with Trust
 
-- Mistrust should positively relate with Risk Vigilance and Relational Scepticism
+- Mistrust should positively relate with Distrust and Relational Scepticism
 
-- Credulity should negatively positively with Risk Vigilance
+- Credulity should negatively positively with Distrust
 
 ### GAID
 
@@ -567,11 +567,11 @@ We use the PTT-A short form [@scholz2025] which comprises of the following six *
 
 **Assumed relationship with TPSai:**
 
-- Overall dependency should positively relate with Trust and negatively with Risk Vigilance
+- Overall dependency should positively relate with Trust and negatively with Distrust
 
-- Negative consequences should positively relate with Risk Vigilance and Relational Scepticism
+- Negative consequences should positively relate with Distrust and Relational Scepticism
 
-- Cognitive Preoccupation should positive relate with Risk Vigilance
+- Cognitive Preoccupation should positive relate with Distrust
 
 - Withdrawal should negatively relate with Relational Scepticism
 
@@ -629,14 +629,14 @@ comparison_scores <- comparison_scores |>
   mutate(GAID_Overall = rowMeans(across(starts_with("GAID_"))))
 
 sec3 <- eval_data |>
-  select(trust_score, risk_score, rel_scept_score) |>
+  select(trust_score, distrust_score, rel_scept_score) |>
   bind_cols(comparison_scores)
 ```
 
 Correlations with TPSai scale scores are estimated with Pearson coefficients. Unlike the concurrent validity analyses, no polyserial or polychoric estimation is required here, as both sides of each correlation are multi-item composites with approximately continuous distributions rather than single ordinal items.
 
 ```{r}
-tpsai_cols <- c("trust_score", "risk_score", "rel_scept_score")
+tpsai_cols <- c("trust_score", "distrust_score", "rel_scept_score")
 other_cols <- setdiff(names(sec3), tpsai_cols)
 
 ct <- psych::corr.test(sec3, adjust = "none")
@@ -669,7 +669,7 @@ omega_for <- function(data, map, fname) {
 }
 
 omegas <- c(
-  trust_score = 0.96, risk_score = 0.912, rel_scept_score = 0.859,  # ω from CFA (m3)
+  trust_score = 0.96, distrust_score = 0.912, rel_scept_score = 0.859,  # ω from CFA (m3)
   map_dbl(setdiff(other_cols, "GAID_Overall"),
           \(f) omega_for(eval_data, instrument_map, f)) |>
     setNames(setdiff(other_cols, "GAID_Overall"))
@@ -693,15 +693,15 @@ sec3_raw |> kable(digits = 2)
 predictions <- tribble(
   ~tpsai,          ~other,             ~expected,
   "trust_score",   "ETMCQ_Trust",      "+",
-  "risk_score",   "ETMCQ_Mistrust",   "+",
+  "distrust_score",   "ETMCQ_Mistrust",   "+",
   "rel_scept_score",   "ETMCQ_Mistrust",   "+",
-  "risk_score",   "ETMCQ_Credulity",  "-",
+  "distrust_score",   "ETMCQ_Credulity",  "-",
   "rel_scept_score",   "ETMCQ_Credulity",  "-",
   "trust_score",   "PTT",              "+",
   "trust_score",   "GAID_Overall",     "+",
-  "risk_score",   "GAID_Overall",     "-",
+  "distrust_score",   "GAID_Overall",     "-",
   "rel_scept_score",   "GAID_Overall",     "-",
-  "risk_score",   "GAID_NegCons",     "+",
+  "distrust_score",   "GAID_NegCons",     "+",
   "trust_score",   "GAID_CogPre",      "+",
   "trust_score",   "GAID_Withdrawal",  "+",
   "rel_scept_score",   "GAID_Withdrawal",  "-"
@@ -750,7 +750,7 @@ htmt_model <- htmt_syntax(instrument_map)
 
 Thresholds are assigned in advance by pair:
 
-- HTMT \< .90 for facets within a domain (e.g. Risk Vigilance vs. Relational Scepticism)
+- HTMT \< .90 for facets within a domain (e.g. Distrust vs. Relational Scepticism)
 
 - HTMT \< .85 for conceptually distinct pairs (everything else)
 
@@ -782,7 +782,7 @@ paired <- raw_retest_data |>
   rename(all_of(setNames(cols_tpsai_raw, cols_tpsai_retest))) |>
   mutate(
     trust_score_t2 = rowMeans(across(all_of(trust_items_retest))),
-    risk_score_t2 = rowMeans(across(all_of(rv_items_retest))),
+    distrust_score_t2 = rowMeans(across(all_of(rv_items_retest))),
     rel_scept_score_t2 = rowMeans(across(all_of(rs_items_retest)))
   ) |>
   left_join(eval_data, by = "PROLIFIC_PID")
@@ -799,7 +799,7 @@ We evaluate test-retest reliability via:
 - **ICC/ω**, the proportion of *reliable* variance that is stable across occasions. A score cannot be more stable than it is reliable, so raw ICCs are not comparable across subscales of differing reliability. ICC ≈ ω indicates that no systematic variance is changing; ICC ≪ ω indicates reliable variance that moves between occasions, which is the situational signal.
 
 ```{r}
-omegas <- c(trust_score = 0.96, risk_score = 0.912, rel_scept_score = 0.859)
+omegas <- c(trust_score = 0.96, distrust_score = 0.912, rel_scept_score = 0.859)
 
 map_dfr(names(omegas), \(s) {
   x   <- paired[[s]]
@@ -842,7 +842,7 @@ eval_data |>
   group_by(platform) |>
   summarise(n = n(), 
             trust = mean(trust_score),
-            risk_vigilance = mean(risk_score),
+            risk_vigilance = mean(distrust_score),
             relational_scepticism = mean(rel_scept_score),
             ) |>
   arrange(desc(n)) |>
@@ -854,7 +854,7 @@ eval_data |>
   filter(platform %in% common_platforms) |>
   add_count(platform) |>
   mutate(platform = paste0(platform, " (n = ", n, ")")) |>
-  pivot_longer(cols = c(trust_score, risk_score, rel_scept_score), names_to = "scale", values_to = "score") |>
+  pivot_longer(cols = c(trust_score, distrust_score, rel_scept_score), names_to = "scale", values_to = "score") |>
   ggplot(aes(x = score, y = scale, fill = platform)) +
   labs(x = "", y = "") +
   geom_boxplot()
@@ -881,7 +881,7 @@ eval_data |>
 plot_psy <- function(data, var, xlab) {
   data |>
     filter(!is.na({{ var }})) |>
-    pivot_longer(c(trust_score, risk_score, rel_scept_score),
+    pivot_longer(c(trust_score, distrust_score, rel_scept_score),
                  names_to = "scale", values_to = "score") |>
     group_by({{ var }}, scale) |>
     summarise(mean_score = mean(score),
@@ -919,7 +919,7 @@ psy_freq_labels <- c(
 psy_freq_data <- eval_data |>
   mutate(psy_freq = factor(`PSY-FREQ`, levels=psy_freq_levels, 
                            ordered=TRUE, label=psy_freq_labels)) |>
-  pivot_longer(cols = c(trust_score, risk_score, rel_scept_score), 
+  pivot_longer(cols = c(trust_score, distrust_score, rel_scept_score), 
                names_to = "scale", values_to = "score") |>
   group_by(psy_freq, scale) |>
   summarise(mean_score = mean(score),
@@ -964,7 +964,7 @@ psy_sat_levels <- c(
 psy_sat_data <- eval_data |>
   filter(!is.na(`PSY-SAT`)) |>
   mutate(psy_sat = factor(`PSY-SAT`, levels=psy_sat_levels, ordered=TRUE)) |>
-  pivot_longer(cols = c(trust_score, risk_score, rel_scept_score), 
+  pivot_longer(cols = c(trust_score, distrust_score, rel_scept_score), 
                names_to = "scale", values_to = "score") |>
   group_by(psy_sat, scale) |>
   summarise(mean_score = mean(score),
@@ -1037,7 +1037,7 @@ eval_data |>
     right = FALSE,
     include.lowest = TRUE
   )) |>
-  pivot_longer(cols = c(trust_score, risk_score, rel_scept_score), names_to = "scale", values_to = "score") |>
+  pivot_longer(cols = c(trust_score, distrust_score, rel_scept_score), names_to = "scale", values_to = "score") |>
   group_by(age_bracket, scale) |>
   summarise(
     mean_score = mean(score),

@@ -234,17 +234,39 @@ dist_data <- items_data %>%
 # adding another threshold from visual inspection
 v_dist_threshold <- 1.3
 
-ggplot(dist_data, aes(x = skew, y = kurt, colour = subscale, label = item)) +
-  geom_point() +
+ggplot(dist_data, aes(x = skew, y = kurt, colour = subscale)) +
   geom_hline(yintercept = c(-dist_threshold, dist_threshold),
-             linetype = "dashed", linewidth = 0.3) +
+             linetype = "dashed", linewidth = 0.2) +
   geom_vline(xintercept = c(-dist_threshold, dist_threshold),
-             linetype = "dashed", linewidth = 0.3) +
+             linetype = "dashed", linewidth = 0.2) +
   geom_hline(yintercept = c(-v_dist_threshold, v_dist_threshold),
              linetype = "dashed", colour = "red", linewidth = 0.3) +
   geom_vline(xintercept = c(-v_dist_threshold, v_dist_threshold),
              linetype = "dashed", colour = "red", linewidth = 0.3) +
-  labs(x = "Skewness", y = "Kurtosis", colour = "Factors")
+  geom_point(size = 3, alpha = 0.85) +
+  scale_colour_manual(
+    name   = "Dimension",
+    breaks = c("HUMN", "CRIT", "RISK", "SAFE",
+               "COMP", "PERS", "EMOT", "CORP"),
+    values = c(
+      "COMP" = "#E69F00", "PERS" = "#56B4E9",
+      "EMOT" = "#009E73", "SAFE" = "#0072B2",
+      "RISK" = "#D55E00", "CORP" = "#CC79A7",
+      "CRIT" = "#000000", "HUMN" = "#999999"
+    ),
+    labels = c(
+      "COMP" = "Psychological Competence",
+      "PERS" = "Personalisation",
+      "EMOT" = "Emotional Intelligence",
+      "SAFE" = "Psychological Safety",
+      "RISK" = "Risk Perception",
+      "CORP" = "Corporate Distrust",
+      "CRIT" = "Critical Engagement",
+      "HUMN" = "Artificial Humanness"
+    )
+  ) +
+  coord_cartesian(xlim = c(-2.6, 0.6), ylim = c(-1.7, 7.1)) +
+  labs(x = "Skewness", y = "Kurtosis")
 ```
 
 ```{r}

@@ -117,8 +117,8 @@ EFA suggested items first clearly divide between Trust and Distrust items and th
 
 1.  Unidimensional
 2.  Trust / Distrust
-3.  Trust/ Risk Vigilance/ Relational Scepticism
-4.  Competence / Affective Trust / Risk Vigilance / Relational Scepticism.
+3.  Trust/ Distrust/ Relational Scepticism
+4.  Competence / Affective Trust / Distrust / Relational Scepticism.
 
 We also decided to test an additional model, that is a bi-factor model with a single general factor loading on all items, plus a specific factor loading on distrust items, constrained orthogonal to the general factor (which we call `m1b`). This model tests whether the items hypothesised to measure Distrust require covariance beyond that accounted for by a single general dimension. If `m1b` fits comparably to `m2`, the two-factor structure cannot be distinguished from a single bipolar dimension. Because item content (trust and distrust) and item framing (motivation-worded vs concern-worded) are aligned in this set, the specific factor is not identified with respect to which of these it reflects, and we report it without substantive interpretation.
 
@@ -495,6 +495,16 @@ m3_loadings <- lavaan::standardizedSolution(m3, type = "std.all") |>
 plot_loadings(m3_loadings)
 ```
 
+```{r}
+lavaan::standardizedSolution(m3, type = "std.all") |>
+  subset(op == "=~") |>
+  pivot_wider(
+    names_from = "lhs",
+    values_from = "est.std",
+    id_cols = "rhs"
+  ) |> arrange(rhs) |> kable(digits = 2)
+```
+
 # Reliability
 
 Reliability metrics evaluate the internal consistency of the latent factors based on the estimated CFA model parameters. We compute both Cronbach's Alpha (α) and McDonald's Omega (ω) for the selected models to assess how well each factor's items measure the underlying construct. Generally, reliability coefficients of 0.70 or higher are considered acceptable for research purposes, with 0.80 or higher preferred for high-stakes applications. Conversely, coefficients above roughly 0.95 can indicate item redundancy rather than superior measurement, since near-paraphrased items inflate internal consistency while adding little construct coverage; we therefore read very high values as a signal to inspect item content rather than as evidence of quality.
@@ -573,88 +583,26 @@ item_diagnostics |>
 
 **Interpretation:** Items with low loadings and/or high residual correlations suggest potential issues. The table is sorted by absolute loading (lowest first). Items with *both* low loadings *and* high residual correlations are prime candidates for removal, as they contribute little to the factor while leaving unexplained covariance.
 
-# Scale Refinement
+# Unexplained Variance
 
-We refine the item set based on two criteria:
-
-1.  **Weak indicators**: Items with top standardised loading \< 0.75
-2.  **Redundant items**: Items appearing in 3 or more pairs with within-factor correlations \> 0.75
-
-This removes both weak measurement and multicollinearity while preserving strong, non-redundant indicators.
-
-**Items to be dropped:**
+For transparency in reporting, when fitting models is also interesting to ask what variance they do not capture. Since global indices can mask localised misfit, we can inspect the largest standardised residual correlations. While we do not plan to use the results of standardised residual correlations in any specific modelling decisions, we compute and report them to interpreter their relative fit.
 
 ```{r}
-weak_threshold <- 0.7
-corr_threshold <- 0.7
+resid_cor <- residuals(m3, type = "cor")$cov
+resid_cor[upper.tri(resid_cor, diag = TRUE)] <- NA
 
-# Recalculate inter-item correlations and redundancy for this section
-implied_cor <- fitted(m3)$cov
-
-cor_long <- as.data.frame(as.table(implied_cor)) |>
-  as_tibble() |>
-  rename(item1 = Var1, item2 = Var2, correlation = Freq) |>
-  mutate(
-    i = match(item1, rownames(implied_cor)),
-    j = match(item2, colnames(implied_cor))
-  ) |>
-  filter(i < j, !is.na(correlation)) |>
-  select(item1, item2, correlation)
-
-cor_pairs <- cor_long |>
-  left_join(
-    item_map |> select(item, sub3) |> distinct() |> rename(item1 = item, factor1 = sub3),
-    by = "item1"
-  ) |>
-  left_join(
-    item_map |> select(item, sub3) |> distinct() |> rename(item2 = item, factor2 = sub3),
-    by = "item2"
-  ) |>
-  filter(factor1 == factor2) |>
-  rename(factor = factor1) |>
-  select(item1, item2, correlation, factor) |>
-  mutate(abs_correlation = abs(correlation)) |>
-  arrange(desc(abs_correlation))
-
-high_cor_items <- bind_rows(
-  cor_pairs |> filter(abs_correlation > corr_threshold) |> rename(item = item1),
-  cor_pairs |> filter(abs_correlation > corr_threshold) |> rename(item = item2)
-) |>
-  group_by(item) |>
-  summarise(
-    n_high_cors = n(),
-    max_correlation = max(abs_correlation),
-    mean_correlation = mean(abs_correlation),
-    .groups = "drop"
-  ) |>
-  arrange(desc(n_high_cors))
-
-# Identify weak items (top loading < 0.70)
-weak_items <- loadings_df |>
-  rename(item = rhs, loading = est.std) |>
-  filter(abs(loading) < weak_threshold) |>
-  pull(item) |>
-  sort()
-
-# Identify redundant items (3+ pairs with r > 0.75)
-redundant_items_to_drop <- high_cor_items |>
-  filter(n_high_cors >= 3) |>
-  pull(item) |>
-  sort()
-
-# Combine the two lists
-items_to_drop <- union(weak_items, redundant_items_to_drop)
-
-cat("Weak items:\n")
-print(weak_items)
-cat("\nRedundant items:\n")
-print(redundant_items_to_drop)
-cat("\nTotal items to drop:", length(items_to_drop), "\n")
-cat("Items dropped:", paste(items_to_drop, collapse = ", "), "\n")
-cat("Items retained:", length(cols_tpsai) - length(items_to_drop), "\n")
+as.data.frame(as.table(resid_cor)) |>
+  filter(!is.na(Freq)) |>
+  arrange(desc(abs(Freq))) |>
+  head(10) |>
+  transmute(item_1 = Var1, item_2 = Var2, residual_r = round(Freq, 3)) |>
+  kable()
 ```
 
+# Scale Refinement
+
 ```{r}
+items_to_drop <- c("TPSAI_24", "TPSAI_25")
 cols_tpsai_refined <- setdiff(cols_tpsai, items_to_drop)
 cfa_data_refined <- cfa_data |> select(all_of(cols_tpsai_refined))
 
@@ -736,20 +684,4 @@ bind_rows(
     `ω` = round(rel_m3_ref["omega", "RelationalScepticism"], 3)
   )
 ) |> kable(col.names = c("Factor", "α.ord", "ω"))
-```
-
-```{r}
-m3_ref_loadings <- lavaan::standardizedSolution(m3_ref, type = "std.all") |>
-  subset(op == "=~") |>
-  pivot_wider(
-    names_from = "lhs",
-    values_from = "est.std",
-    id_cols = "rhs"
-  ) |>
-  column_to_rownames("rhs") |>
-  as.matrix()
-```
-
-```{r, fig.height=8, fig.width=6}
-plot_loadings(m3_ref_loadings)
 ```
