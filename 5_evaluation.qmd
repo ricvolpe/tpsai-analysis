@@ -760,6 +760,29 @@ HTMT is evaluated as a point estimate against the thresholds above. We do not co
 htmt(htmt_model, data = eval_data, ordered = TRUE, absolute = TRUE)
 ```
 
+### Correlations between scales and single-items
+```{r}
+si_compare <- eval_data |>
+  select(
+    trust_level, distrust_level) |>
+  transmute(
+    trust_level    = ordered(trust_level,    levels = 1:7),
+    distrust_level = ordered(distrust_level, levels = 1:7)
+  ) |>
+  bind_cols(comparison_scores) |>
+  as.data.frame()
+  
+si_compare_cors <- hetcor(si_compare, ML = TRUE, std.err = TRUE)
+```
+
+```{r}
+si_compare_cors$correlations |> kable(digits = 3)
+```
+
+```{r}
+si_compare_cors$type
+```
+
 # Test-Retest Reliability
 
 We compute test-retest reliability using a follow-up sample of N = 100 respondents who re-completed TPSai one week after the CFA.
@@ -824,6 +847,37 @@ map_dfr(names(omegas), \(s) {
 The criteria pull against each other: a high ICC supports retest reliability but weakens the claim that TPSai is situational, since it indicates the score is largely a stable person characteristic. We interpret retest stability relative to the PTT-A short form [@scholz2025], which reports r\~TT\~ = .71 over approximately one year (ω = .83). Because our interval is one week, a comparable or lower TPSai value would indicate *less* stability than an explicitly dispositional measure, supporting the situational interpretation; a substantially higher value is expected on interval alone and is therefore not by itself evidence of trait-likeness. We compare the ratio of stability to internal consistency rather than the raw coefficient, and use the Pearson correlation for this comparison since the published value is a Pearson r.
 
 Retest reliability and correlations with PTT-A and the ETMCQ jointly locate TPSai on the state–trait continuum, and neither is sufficient alone. Low retest stability together with low correlations with the predisposition measures would support the situational interpretation we intend. High stability together with high correlations would indicate that TPSai largely restates dispositional trust. High stability together with *low* correlations would indicate a *relational* measure: scores stable over a week not because the person is stable, but because their accumulated experience with a specific platform is, changing only after specific events such as a significant mistake by the platform or a news article. We report r² for the correlations with PTT-A and the ETMCQ as the upper bound on the dispositional account.
+
+## Single-item test-retest
+
+```{r}
+si_paired <- raw_retest_data |>
+  mutate(
+    trust_level_t2   = overall_levels[TR],
+    distrust_level_t2   = overall_levels[DT]
+  ) |>
+  left_join(eval_data, by = "PROLIFIC_PID") |>
+  select(
+    trust_level_t2, distrust_level_t2,
+    trust_level, distrust_level) |>
+  transmute(
+    trust_level    = ordered(trust_level,    levels = 1:7),
+    trust_level_t2    = ordered(trust_level_t2,    levels = 1:7),
+    distrust_level = ordered(distrust_level, levels = 1:7),
+    distrust_level_t2 = ordered(distrust_level_t2, levels = 1:7)
+  ) |>
+  as.data.frame()
+
+si_paired_cors <- hetcor(si_paired, ML = TRUE, std.err = TRUE)
+```
+
+```{r}
+si_paired_cors$correlations |> kable(digits = 3)
+```
+```{r}
+si_paired_cors$type
+```
+
 
 # Exploratory Analysis
 
