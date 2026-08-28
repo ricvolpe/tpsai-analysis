@@ -20,8 +20,6 @@ This is what experts read during their evaluation of questions.
 >
 > As part of this process, we are conducting an expert content evaluation to assess whether the items in our scale are clear, relevant, and appropriate. Over the next few sections, you will see items from our scale grouped by the theoretical factor that we assigned to them.
 >
-> We conceptualise trust as defined in our conceptual review of this research topic (see <https://doi.org/10.1016/j.chbah.2025.100195>)andderive our theoretical factors by combining our conceptual categorisation of relevant literature (see <https://www.sciencedirect.com/science/article/pii/S2949882125000799#fig1>) with the themes from our qualitative study of people's lived experiences of trusting emotional support from generative AI (see <https://arxiv.org/pdf/2601.16656> - Figure 1).
->
 > Across factors, for each item please indicate whether to:
 >
 > - **Keep** – retain the item as written
@@ -70,23 +68,21 @@ For question wordings see, [expert-evaluation_qs.csv](surveys/expert-evaluation_
 
 # Data Processing
 
-```{r, echo=FALSE}
+```{r}
 library(tidyverse)
 library(gtools)
 library(psych)
 library(irr)
 library(knitr)
-
-set.seed(8675309) # makes sure random numbers are reproducible
 ```
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+-+Experts.csv"
+file_path <- "data/shared/TPSai+-+Experts.csv"
 raw_data <- read_csv(file_path, n_max = 2)
 colnames <- names(raw_data)
 question_labels <- setNames(sub(" - .*", "", as.character(raw_data[1, ])), colnames)
-raw_data <- read_csv(file_path, col_names = colnames, skip = 3)
+raw_data <- read_csv(file_path, col_names = colnames, skip = 2)
 ```
 
 ```{r}
