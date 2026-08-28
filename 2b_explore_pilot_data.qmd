@@ -27,10 +27,10 @@ set.seed(8675309)
 **Load data**
 
 ```{r}
-file_path <- "data/TPSai+-+Pilot.csv"
+file_path <- "data/shared/TPSai+-+Pilot.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
-raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 2)
 ```
 
 **Response-scale coding**
@@ -490,7 +490,7 @@ plot_cluster_profile("k4")
 ```
 
 | Clst | Label | Profile |
-|-----|----------|---------------------------------------------------------|
+|------------|------------|-------------------------------------------------|
 | ❤️ 1 | Hard Rejecters | Never use AI. Trust factors at floor (≈2 across Competence, Personalisation, Empathy, Safety), distrust factors at ceiling (≈6.5 across Risk Perception, Corporate Distrust, Sentience Attribution). Monolithic opposition on every dimension. |
 | 🧡 2 | Cautiously Open | Occasional use. Distrust factors as high as rejecters (≈ 6–6.5), but trust factors sit at the neutral midpoint (≈4.4) rather than at floor. They hold all the same concerns about AI without rejecting its potential value. |
 | 🩵 3 | Critically Engaged | Regular use. Elevated trust factors (≈5, with Psychological Competence) *and* elevated distrust factors (≈5, with Sentience Attribution highest). Trust without naivety — they use AI competently while retaining critical awareness. |

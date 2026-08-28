@@ -22,11 +22,11 @@ library(knitr)
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+–+Prolific_EFA_24+June+2026_16.04.csv"
+file_path <- "data/shared/TPSai+–+Prolific_EFA.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
-raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 2)
 ```
 
 ```{r}

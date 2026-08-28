@@ -2250,11 +2250,11 @@ vertical-align: -.125em;
 <h1>Data Preparation</h1>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">readr.show_col_types =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>file_path <span class="ot">&lt;-</span> <span class="st">&quot;data/TPSai+–+Prolific_EFA_24+June+2026_16.04.csv&quot;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>file_path <span class="ot">&lt;-</span> <span class="st">&quot;data/shared/TPSai+–+Prolific_EFA.csv&quot;</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>raw_data  <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(file_path, <span class="at">n_max =</span> <span class="dv">2</span>)</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>colnames  <span class="ot">&lt;-</span> <span class="fu">names</span>(raw_data)</span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>q_text    <span class="ot">&lt;-</span> <span class="fu">setNames</span>(<span class="fu">sub</span>(<span class="st">&quot;.* - &quot;</span>, <span class="st">&quot;&quot;</span>, <span class="fu">as.character</span>(raw_data[<span class="dv">1</span>, ])), colnames)</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>raw_data  <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(file_path, <span class="at">col_names =</span> colnames, <span class="at">skip =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>raw_data  <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(file_path, <span class="at">col_names =</span> colnames, <span class="at">skip =</span> <span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>factors_map <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">&#39;surveys/efa_qs.csv&#39;</span>)</span>
