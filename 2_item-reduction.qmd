@@ -17,12 +17,10 @@ library(tidyverse)
 library(gtools)
 library(psych)
 library(knitr)
-
-set.seed(8675309) # makes sure random numbers are reproducible
 ```
 
 ```{r}
-file_path <- "data/TPSai+-+Pilot.csv"
+file_path <- "data/shared/TPSai+-+Pilot.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
@@ -452,19 +450,3 @@ if (nrow(missing_items) > 0) {
   missing_items %>% knitr::kable(digits = 2)
 }
 ```
-
-# Duration
-
-Displaying survey duration for pilot test responses in order to decided how much to grant for future data collection.
-
-```{r, warning=FALSE}
-p80 <- quantile(raw_data$`Duration (in seconds)`, 0.80, na.rm = TRUE)
-p95 <- quantile(raw_data$`Duration (in seconds)`, 0.95, na.rm = TRUE)
-
-ggplot(raw_data, aes(x = `Duration (in seconds)`)) +
-  geom_histogram(bins = 50) +
-  xlim(NA, p95) +
-  geom_vline(xintercept = p80, linetype = "dashed", color = "red")
-```
-
-80% of respondents completed the survey within `{r} p80` seconds, a figure that we will use for compensating future survey responses, discounted by the number of items that we will remove going into those iterations.
