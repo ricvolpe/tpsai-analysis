@@ -1,31 +1,31 @@
-﻿ID,No,2F,4F,Item,Load
-TPSAI_01,1,Trust,Competence,I trust the AI to provide me information that helps me manage my psychological challenges,0.88
-TPSAI_02,2,Trust,Competence,I trust the AI to help me clarify my thoughts about a difficult situation,0.84
-TPSAI_03,3,Trust,Competence,I trust that what the AI tells me about psychological concepts and processes is accurate and reliable,0.82
-TPSAI_04,4,Trust,Competence,I can rely on the AI to make sense of the perspective of someone I am having difficulties to understand,0.82
-TPSAI_05,5,Trust,Competence,Using the AI enables me to see how my experiences fit into what is common for others,0.74
-TPSAI_06,6,Trust,Competence,I trust the AI to understand my specific needs when I ask for support,0.86
-TPSAI_07,7,Trust,Competence,I trust the AI to give me advice that is well-tailored to my specific situation,0.87
-TPSAI_08,8,Trust,Competence,"I trust that the more information the AI has about me, the better it can support me",0.78
-TPSAI_09,9,Trust,Competence,I trust the AI to reflect the feelings I share in a way that feels accurate,0.85
-TPSAI_10,10,Trust,Affective,I trust the AI to make me feel heard and validated,0.79
-TPSAI_11,11,Trust,Affective,I feel calmer when I talk to the AI while distressed,0.84
-TPSAI_12,12,Trust,Affective,Talking to the AI about difficult situations leaves me feeling reassured,0.89
-TPSAI_13,13,Trust,Affective,I trust that the AI responses do not make me feel discriminated,0.63
-TPSAI_14,14,Trust,Affective,I trust the AI to provide me with a space where I can express myself freely,0.71
-TPSAI_15,15,Trust,Affective,Opening up to the AI about personal concerns feels safe,0.8
-TPSAI_16,16,Distrust,Risk Vigilance,"I am concerned that the AI may not be able to respond appropriately to a mental health crisis (e.g., feeling hopeless, stuck, or wanting to self-harm)",0.81
-TPSAI_17,17,Distrust,Risk Vigilance,I am concerned that the AI does not sufficiently highlight its limitations as a mental health tool,0.82
-TPSAI_18,18,Distrust,Risk Vigilance,I believe the AI may provide inaccurate or misleading mental health information,0.87
-TPSAI_19,19,Distrust,Risk Vigilance,I am concerned that the AI offers psychological advice without sufficient ethical and regulatory accountability,0.87
-TPSAI_20,20,Distrust,Risk Vigilance,I am concerned that the AI company may use my data in ways I do not approve of,0.74
-TPSAI_21,21,Distrust,Risk Vigilance,I am skeptical that the AI company ensures the AI is safe to use for mental health support,0.83
-TPSAI_22,22,Distrust,Risk Vigilance,I am concerned that the values of the AI company do not sufficiently align with my own,0.81
-TPSAI_23,23,Distrust,Risk Vigilance,I am concerned that the AI company treats my wellbeing as secondary to their commercial interests,0.73
-TPSAI_24,24,Distrust,Risk Vigilance,"I trust AI responses less as conversations get longer and the AI starts to 'drift' (e.g., speaks repetitively or less consistently)",0.52
-TPSAI_25,25,Distrust,Risk Vigilance,I am concerned that the way the AI communicates may lead me to trust it more than I should,0.33
-TPSAI_26,26,Distrust,Relational Scepticism,The AI cannot replace human support even when it is limited and difficult to access,0.76
-TPSAI_27,27,Distrust,Relational Scepticism,"Even though the AI sounds human, our interactions lack a sense of shared presence and experience",0.79
-TPSAI_28,28,Distrust,Relational Scepticism,The emotional support the AI can offer is limited by its lack of embodied feelings and shared presence,0.8
-TPSAI_29,29,Distrust,Relational Scepticism,"While the AI uses empathic language, it does not comprehend and care about my experiences",0.83
-TPSAI_30,30,Distrust,Relational Scepticism,Forming an emotional connection with the AI is limited by its lack of genuine feelings and experience,0.71
+﻿ID,2F,3F,4F,Item
+TPSAI_01,Trust,Trust,Cognitive Trust,I trust the AI to provide me information that helps me manage my psychological challenges
+TPSAI_02,Trust,Trust,Cognitive Trust,I trust the AI to help me clarify my thoughts about a difficult situation
+TPSAI_03,Trust,Trust,Cognitive Trust,I trust that what the AI tells me about psychological concepts and processes is accurate and reliable
+TPSAI_04,Trust,Trust,Cognitive Trust,I can rely on the AI to make sense of the perspective of someone I am having difficulties to understand
+TPSAI_05,Trust,Trust,Cognitive Trust,Using the AI enables me to see how my experiences fit into what is common for others
+TPSAI_06,Trust,Trust,Cognitive Trust,I trust the AI to understand my specific needs when I ask for support
+TPSAI_07,Trust,Trust,Cognitive Trust,I trust the AI to give me advice that is well-tailored to my specific situation
+TPSAI_08,Trust,Trust,Cognitive Trust,"I trust that the more information the AI has about me, the better it can support me"
+TPSAI_09,Trust,Trust,Cognitive Trust,I trust the AI to reflect the feelings I share in a way that feels accurate
+TPSAI_10,Trust,Trust,Affective Trust,I trust the AI to make me feel heard and validated
+TPSAI_11,Trust,Trust,Affective Trust,I feel calmer when I talk to the AI while distressed
+TPSAI_12,Trust,Trust,Affective Trust,Talking to the AI about difficult situations leaves me feeling reassured
+TPSAI_13,Trust,Trust,Affective Trust,I trust that the AI responses do not make me feel discriminated
+TPSAI_14,Trust,Trust,Affective Trust,I trust the AI to provide me with a space where I can express myself freely
+TPSAI_15,Trust,Trust,Affective Trust,Opening up to the AI about personal concerns feels safe
+TPSAI_16,Distrust,Distrust,Risk Vigilance,"I am concerned that the AI may not be able to respond appropriately to a mental health crisis (e.g., feeling hopeless, stuck, or wanting to self-harm)"
+TPSAI_17,Distrust,Distrust,Risk Vigilance,I am concerned that the AI does not sufficiently highlight its limitations as a mental health tool
+TPSAI_18,Distrust,Distrust,Risk Vigilance,I believe the AI may provide inaccurate or misleading mental health information
+TPSAI_19,Distrust,Distrust,Risk Vigilance,I am concerned that the AI offers psychological advice without sufficient ethical and regulatory accountability
+TPSAI_20,Distrust,Distrust,Risk Vigilance,I am concerned that the AI company may use my data in ways I do not approve of
+TPSAI_21,Distrust,Distrust,Risk Vigilance,I am skeptical that the AI company ensures the AI is safe to use for mental health support
+TPSAI_22,Distrust,Distrust,Risk Vigilance,I am concerned that the values of the AI company do not sufficiently align with my own
+TPSAI_23,Distrust,Distrust,Risk Vigilance,I am concerned that the AI company treats my wellbeing as secondary to their commercial interests
+TPSAI_24,Distrust,Distrust,Risk Vigilance,"I trust AI responses less as conversations get longer and the AI starts to 'drift' (e.g., speaks repetitively or less consistently)"
+TPSAI_25,Distrust,Distrust,Risk Vigilance,I am concerned that the way the AI communicates may lead me to trust it more than I should
+TPSAI_26,Distrust,Relational Scepticism,Relational Scepticism,The AI cannot replace human support even when it is limited and difficult to access
+TPSAI_27,Distrust,Relational Scepticism,Relational Scepticism,"Even though the AI sounds human, our interactions lack a sense of shared presence and experience"
+TPSAI_28,Distrust,Relational Scepticism,Relational Scepticism,The emotional support the AI can offer is limited by its lack of embodied feelings and shared presence
+TPSAI_29,Distrust,Relational Scepticism,Relational Scepticism,"While the AI uses empathic language, it does not comprehend and care about my experiences"
+TPSAI_30,Distrust,Relational Scepticism,Relational Scepticism,Forming an emotional connection with the AI is limited by its lack of genuine feelings and experience

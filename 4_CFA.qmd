@@ -12,7 +12,7 @@ execute:
   warning: false
 ---
 
-```{r, echo=FALSE}
+```{r}
 library(tidyverse)
 library(semTools)
 library(knitr)
@@ -22,11 +22,10 @@ library(knitr)
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+–+Prolific_CFA+Eval_9+August+2026_22.23.csv"
+file_path <- "data/shared/TPSai+–+Prolific_CFA+Eval+Demog.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
-q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
-raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 2)
 ```
 
 ```{r}
@@ -35,32 +34,7 @@ cols_tpsai_raw  <- sprintf("TPSAI_%d", seq_len(nrow(questions_map)))
 ```
 
 ```{r}
-# check that survey and factors correspond
-data.frame(
-  survey_col  = cols_tpsai_raw,
-  survey_q    = unname(q_text[cols_tpsai_raw]),
-  factor_item = questions_map$Item
-) %>%
-  mutate(match = survey_q == factor_item) |>
-  filter(!match) %>% nrow() == 0
-```
-
-```{r}
 questions_map |> kable()
-```
-
-**Demographic data**
-
-```{r}
-demog <- list.files("data/demog/cfa", full.names = TRUE) |>
-  lapply(read_csv, show_col_types = FALSE) |>
-  lapply(\(x) mutate(x, Age = as.character(Age))) |>
-  bind_rows() |>
-  rename(PROLIFIC_PID = `Participant id`)
-
-raw_data <- raw_data |>
-  left_join(demog, by = "PROLIFIC_PID") |>
-  filter(`Status.y` == "APPROVED")
 ```
 
 **Number of responses**
@@ -535,54 +509,6 @@ bind_rows(
 ) |> kable(col.names = c("Factor", "α.ord", "ω"))
 ```
 
-# Item Diagnostics
-
-Before deciding which items to drop, we examine standardised factor loadings and unexplained variance (residual correlations). Items that load weakly or contribute to large residual correlations are candidates for removal.
-
-```{r}
-# Standardised residual correlations
-resid_cor_m3 <- residuals(m3, type = "cor")$cov
-resid_cor_m3[upper.tri(resid_cor_m3, diag = TRUE)] <- NA
-
-resid_df <- as.data.frame(as.table(resid_cor_m3)) |>
-  filter(!is.na(Freq)) |>
-  mutate(abs_resid = abs(Freq)) |>
-  arrange(desc(abs_resid))
-
-# Items appearing in high residual correlations
-item_resid_freq <- bind_rows(
-  resid_df |> rename(item = Var1) |> select(item, abs_resid),
-  resid_df |> rename(item = Var2) |> select(item, abs_resid)
-) |>
-  group_by(item) |>
-  summarise(
-    mean_abs_resid = mean(abs_resid),
-    max_abs_resid = max(abs_resid),
-    .groups = "drop"
-  )
-
-# Combine diagnostics
-std_sol <- standardizedSolution(m3, type = "std.all")
-loadings_df <- std_sol[std_sol$op == "=~", c("rhs", "lhs", "est.std")]
-
-item_diagnostics <- loadings_df |>
-  rename(item = rhs, factor = lhs, loading = est.std) |>
-  mutate(abs_loading = abs(loading)) |>
-  select(item, loading, abs_loading) |>
-  left_join(item_resid_freq, by = "item") |>
-  left_join(item_map |> select(item, sub3) |> distinct(), by = "item") |>
-  arrange(abs_loading) |>
-  mutate(across(where(is.numeric), ~round(., 3)))
-
-item_diagnostics |>
-  kable(
-    col.names = c("Item", "Loading", "|Loading|", "Mean Abs Resid", "Max Abs Resid", "Factor"),
-    digits = 3
-  )
-```
-
-**Interpretation:** Items with low loadings and/or high residual correlations suggest potential issues. The table is sorted by absolute loading (lowest first). Items with *both* low loadings *and* high residual correlations are prime candidates for removal, as they contribute little to the factor while leaving unexplained covariance.
-
 # Unexplained Variance
 
 For transparency in reporting, when fitting models is also interesting to ask what variance they do not capture. Since global indices can mask localised misfit, we can inspect the largest standardised residual correlations. While we do not plan to use the results of standardised residual correlations in any specific modelling decisions, we compute and report them to interpreter their relative fit.
@@ -597,91 +523,4 @@ as.data.frame(as.table(resid_cor)) |>
   head(10) |>
   transmute(item_1 = Var1, item_2 = Var2, residual_r = round(Freq, 3)) |>
   kable()
-```
-
-# Scale Refinement
-
-```{r}
-items_to_drop <- c("TPSAI_24", "TPSAI_25")
-cols_tpsai_refined <- setdiff(cols_tpsai, items_to_drop)
-cfa_data_refined <- cfa_data |> select(all_of(cols_tpsai_refined))
-
-# Update item_map for the refined set
-item_map_refined <- item_map |> filter(item %in% cols_tpsai_refined)
-```
-
-**Refined model specifications and fitting:**
-
-```{r}
-m1_syn_refined <- syntax_1f(item_map_refined, "uni")
-m2_syn_refined <- syntax_cf(item_map_refined, "top")
-m3_syn_refined <- syntax_cf(item_map_refined, "sub3")
-m4_syn_refined <- syntax_cf(item_map_refined, "sub")
-
-m1b_syn_refined <- paste0(
-  "general =~ ", paste(item_map_refined$item, collapse = " + "), "\n",
-  "specific  =~ ", paste(intersect(item_map_refined$item, distrust_items), collapse = " + "), "\n",
-  "specific ~~ 0*general"
-)
-```
-
-```{r}
-fit_cfa_refined <- function(synthax) {
-  cfa(synthax, data = cfa_data_refined, ordered = cols_tpsai_refined, estimator = "WLSMV")
-}
-
-m1_ref <- fit_cfa_refined(m1_syn_refined)
-m1b_ref <- fit_cfa_refined(m1b_syn_refined)
-m2_ref <- fit_cfa_refined(m2_syn_refined)
-m3_ref <- fit_cfa_refined(m3_syn_refined)
-m4_ref <- fit_cfa_refined(m4_syn_refined)
-```
-
-**Comparison of fit criteria (original vs. refined):**
-
-```{r}
-fit_table(list(m1_ref, m1b_ref, m2_ref, m3_ref, m4_ref), c("M1", "M1b", "M2", "M3", "M4")) |>
-  select(model, chisq, df, CFI, TLI, RMSEA, SRMR) |>
-  kable()
-```
-
-**Model comparisons (refined dataset):**
-
-```{r}
-comparisons_ref <- bind_rows(
-  compare_adjacent(m1_ref, m2_ref, c("M1", "M2"), "Trust", "Distrust"),
-  compare_adjacent(m2_ref, m3_ref, c("M2", "M3"), "RiskVigilance", "RelationalScepticism"),
-  compare_adjacent(m3_ref, m4_ref, c("M3", "M4"), "Competence", "Affective")
-)
-
-comparisons_ref |>
-  select(comparison, chisq_diff, df_diff, p_value, phi, phi_ci, dCFI) |>
-  kable(
-    col.names = c("Comparison", "Δχ²", "Δdf", "p", "φ", "φ 95% CI", "ΔCFI"),
-    digits = 3
-  )
-```
-
-**Reliability comparison (M3: original vs. refined):**
-
-```{r}
-rel_m3_ref <- reliability(m3_ref)
-
-bind_rows(
-  tibble(
-    Factor = "Trust",
-    `α.ord` = round(rel_m3_ref["alpha.ord", "Trust"], 3),
-    `ω` = round(rel_m3_ref["omega", "Trust"], 3)
-  ),
-  tibble(
-    Factor = "RiskVigilance",
-    `α.ord` = round(rel_m3_ref["alpha.ord", "RiskVigilance"], 3),
-    `ω` = round(rel_m3_ref["omega", "RiskVigilance"], 3)
-  ),
-  tibble(
-    Factor = "RelationalScepticism",
-    `α.ord` = round(rel_m3_ref["alpha.ord", "RelationalScepticism"], 3),
-    `ω` = round(rel_m3_ref["omega", "RelationalScepticism"], 3)
-  )
-) |> kable(col.names = c("Factor", "α.ord", "ω"))
 ```
