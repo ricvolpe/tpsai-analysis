@@ -22,11 +22,11 @@ library(knitr)
 
 ```{r}
 options(readr.show_col_types = FALSE)
-file_path <- "data/TPSai+–+Prolific_EFA_24+June+2026_16.04.csv"
+file_path <- "data/shared/TPSai+–+Prolific_EFA.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
-raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 2)
 ```
 
 ```{r}
@@ -448,93 +448,3 @@ compare_omega(list(omega_distrust_2, omega_distrust_3, omega_distrust_4)) |> kab
 sl_subset <- omega_distrust_2$schmid$sl[, c("F1*", "F2*")]
 plot_loadings(sl_subset)
 ```
-
-## Evaluation
-
-```{r}
-extract_omega_table <- function(omega_obj, model_label) {
-  tab <- omega_obj$omega.group
-  tab$Scale <- rownames(tab)
-  tab$Model <- model_label
-  tab %>%
-    select(Model, Scale, total, general, group) %>%
-    rename(
-      omega_total    = total,
-      omega_h_contrib = general,
-      omega_subscale  = group
-    )
-}
-
-bind_rows(
-  extract_omega_table(omega_trust_2,    "Trust"),
-  extract_omega_table(omega_distrust_2, "Distrust")) |> kable()
-```
-
-Trust and Distrust overall factors have reality high *ω_h*(0.875 and 0.772 respectively) indicating that total trust and distrust scores are well-justified. In particular, the overall Trust score is strongly dominated by a single general factor.
-
-*ω_s* (`omega_subscale)` is
-
-- Trust F1\* = 0.119
-
-- Trust F2\* = 0.075
-
-- Distrust F1\* = 0.254
-
-- Distrust F2\* = 0.172
-
-This means that *after* accounting for the general Trust or Distrust factor, the subfactors carry little unique reliable variance on their own, in particularly for the two Trust subfactors. Thus, especially for Trust, the subfactors share substantial variance with the general factor, suggesting they are better understood as facets contributing to a strong general construct rather than fully independent subscales.
-
-**Explained Common Variance (ECV)**
-
-ECV partitions all the common variance into how much is due to the single general factor vs. how much is due to each specific subfactor. Unlike ω_s, which is about reliability, ECV is purely about variance structure. A commonly cited rule of thumb is that ECV \> 0.80 on the general factor suggests the construct is essentially unidimensional for practical purposes, meaning subscale scores may add little beyond the total score.
-
-```{r}
-compute_ecv <- function(omega_obj) {
-  sl <- as.data.frame(omega_obj$schmid$sl)
-  
-  g_col     <- sl[["g"]]
-  group_cols <- sl[, grepl("^F[0-9]+\\*?$", names(sl)), drop = FALSE]
-  
-  ecv_general <- sum(g_col^2) / (sum(g_col^2) + sum(group_cols^2))
-  ecv_group   <- colSums(group_cols^2) / (sum(g_col^2) + sum(group_cols^2))
-  
-  tibble::tibble(
-    Factor = c("General", names(group_cols)),
-    ECV    = c(ecv_general, ecv_group)
-  )
-}
-
-bind_rows(
-  compute_ecv(omega_trust_2)    %>% mutate(Model = "Trust"),
-  compute_ecv(omega_distrust_2) %>% mutate(Model = "Distrust")) %>% 
-  select(Model, Factor, ECV) %>% 
-  kable()
-```
-
-ECV confirms what *ω_s* indicated:
-
-- Trust is primarily a unidimensional construct as 87% of its common variance is general, leaving very little room for the two subfactors to carry distinct signal (barely 12.6% combined).
-
-- Distrust is less unidimensional: while the general factor still dominates (73.6%), the subfactors together account for over a quarter of common variance (26.4%).
-
-In particular we note that if we explore overall EFA with a 3-factors structure
-
-```{r}
-#| fig-width: 5
-#| fig-height: 12
-efa_3f <- fa(r = R, nfactors = 3, n.obs = nrow(efa_data), fm = "minres", rotate = "oblimin")
-plot_loadings(efa_3f$loadings)
-```
-
-The third factor (TPSAI_27-31) is actually one of the two subfactors of the Distrust factor, indicating these five items this factor may actually sit somewhere a Distrust subfactor and a wholly independent third factor.
-
-Importantly, if we explore EFA with a 4-factors structure
-
-```{r}
-#| fig-width: 6
-#| fig-height: 12
-efa_3f <- fa(r = R, nfactors = 4, n.obs = nrow(efa_data), fm = "minres", rotate = "oblimin")
-plot_loadings(efa_3f$loadings)
-```
-
-The next separation does not divide trust into two subfactors, as theoretically plausible, but rather creating a spurious subfactor with only one item. This further shows that there is almost no evidence of separation within the trust factor.
