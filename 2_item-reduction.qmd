@@ -24,7 +24,7 @@ file_path <- "data/shared/TPSai+-+Pilot.csv"
 raw_data  <- read_csv(file_path, n_max = 2)
 colnames  <- names(raw_data)
 q_text    <- setNames(sub(".* - ", "", as.character(raw_data[1, ])), colnames)
-raw_data  <- read_csv(file_path, col_names = colnames, skip = 3)
+raw_data  <- read_csv(file_path, col_names = colnames, skip = 2)
 ```
 
 # Survey
