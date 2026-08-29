@@ -819,156 +819,6 @@ ggplot(plot_data, aes(x = score, y = scale, fill = platform)) +
   )
 ```
 
-## Psychotherapy
-
-1.  How often have you attended psychotherapy or counselling sessions in your lifetime?
-    a.  Never
-    b.  Once or a few sessions only (1–5 sessions)
-    c.  A short course (roughly 6–20 sessions)
-    d.  An extended course (roughly 21–50 sessions)
-    e.  Long-term or ongoing therapy (more than 50 sessions)
-2.  Thinking about your overall experience of psychotherapy or counselling, how satisfied have you been with it?
-    a.  Very dissatisfied
-    b.  Dissatisfied
-    c.  Neutral
-    d.  Satisfied
-    e.  Very satisfied
-
-**Analysis:** plot scale scores across the levels of both Q1 and Q2, checking for any trends and substantial differences between levels. Exploratory analysis with no pre-registered hypothesis.
-
-```{r}
-plot_psy <- function(data, var, xlab) {
-  data |>
-    filter(!is.na({{ var }})) |>
-    pivot_longer(c(trust_score, distrust_score, rel_scept_score),
-                 names_to = "scale", values_to = "score") |>
-    group_by({{ var }}, scale) |>
-    summarise(mean_score = mean(score),
-              se = sd(score) / sqrt(n()),
-              n  = n(), .groups = "drop") |>
-    mutate(label = paste0({{ var }}, "\n(n=", n, ")")) |>
-    ggplot(aes(x = label, y = mean_score, colour = scale, group = scale)) +
-    geom_point(size = 2) +
-    geom_line(linewidth = 1) +
-    geom_errorbar(aes(ymin = mean_score - 1.96 * se,
-                      ymax = mean_score + 1.96 * se),
-                  width = 0.2, alpha = 0.6) +
-    scale_y_continuous(limits = c(1, 7)) +
-    labs(x = xlab, y = "Scale score", colour = "Scale") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-}
-```
-
-**Lifetime psychotherapy exposure**
-
-```{r, fig.width=8, fig.height=3}
-psy_freq_levels <- c(
-  "Never",
-  "Once or a few sessions only (1–5 sessions)",
-  "A short course (roughly 6–20 sessions)",
-  "An extended course (roughly 21–50 sessions)",
-  "Long-term or ongoing therapy (more than 50 sessions)"
-)
-
-psy_freq_labels <- c(
-  "Never", "1-5 sessions", "6-20", "21-50", "50+"
-)
-
-library(dplyr); library(tidyr); library(ggplot2); library(forcats)
-
-psy_freq_data <- eval_data |>
-  mutate(
-    psy_freq = factor(`PSY-FREQ`, levels = psy_freq_levels,
-                      labels = psy_freq_labels),
-    psy_freq = fct_collapse(psy_freq, "21+" = c("21-50", "50+")),
-    psy_freq = factor(psy_freq,
-                      levels = c("Never", "1-5 sessions", "6-20", "21+"))
-  ) |>
-  filter(!is.na(psy_freq))
-
-# respondent-level n per exposure level (not per cell)
-freq_n <- count(psy_freq_data, psy_freq, name = "n_group", .drop = FALSE)
-
-plot_df <- psy_freq_data |>
-  pivot_longer(c(trust_score, distrust_score, rel_scept_score),
-               names_to = "scale", values_to = "score") |>
-  filter(!is.na(score)) |>
-  group_by(psy_freq, scale) |>
-  summarise(mean_score = mean(score),
-            se = sd(score) / sqrt(n()),
-            n_cell = n(), .groups = "drop") |>
-  mutate(crit = qt(0.975, n_cell - 1)) |>
-  left_join(freq_n, by = "psy_freq") |>
-  mutate(x_label = factor(
-    paste0(psy_freq, "\n(n=", n_group, ")"),
-    levels = paste0(freq_n$psy_freq, "\n(n=", freq_n$n_group, ")")))
-
-
-ggplot(plot_df, aes(x_label, mean_score, colour = scale, group = scale)) +
-  geom_line(linewidth = 1) +
-  geom_errorbar(aes(ymin = mean_score - crit * se,
-                    ymax = mean_score + crit * se),
-                width = 0.15, alpha = 0.7) +
-  geom_point(size = 3) +
-  coord_cartesian(ylim = c(3, 6.5)) +
-  scale_colour_manual(
-    name = "Factors",
-    breaks = c("trust_score", "distrust_score", "rel_scept_score"),
-    values = c(trust_score = "#009E73", distrust_score = "#D55E00",
-               rel_scept_score = "#E69F00"),
-    labels = c(trust_score = "Trust", distrust_score = "Distrust",
-               rel_scept_score = "Relational Scepticism")) +
-  labs(x = "No. of lifetime psychotherapy sessions",
-       y = "Factor score") +
-  theme_minimal(base_size = 11) +
-  theme(axis.text.x = element_text(hjust = 0.5))
-```
-
-**Psychotherapy satisfaction**
-
-```{r}
-psy_sat_levels <- c(
-  "Very dissatisfied",
-  "Dissatisfied",
-  "Neutral",
-  "Satisfied",
-  "Very satisfied"
-)
-
-psy_sat_data <- eval_data |>
-  filter(!is.na(`PSY-SAT`)) |>
-  mutate(psy_sat = factor(`PSY-SAT`, levels=psy_sat_levels, ordered=TRUE)) |>
-  pivot_longer(cols = c(trust_score, distrust_score, rel_scept_score), 
-               names_to = "scale", values_to = "score") |>
-  group_by(psy_sat, scale) |>
-  summarise(mean_score = mean(score),
-            se = sd(score) / sqrt(n()),
-            n  = n(), .groups = "drop")
-```
-
-```{r}
-psy_sat_data |>
-  pivot_wider(
-    id_cols = c(psy_sat, n),
-    names_from = scale,
-    values_from = mean_score
-  ) |> kable(digits = 2)
-```
-
-```{r}
-psy_sat_data |> ggplot(aes(x = psy_sat, y = mean_score, color = scale, group = scale)) +
-  geom_line(linewidth = 1) +
-  geom_errorbar(aes(ymin = mean_score - 1.96 * se,
-                    ymax = mean_score + 1.96 * se),
-                width = 0.2, alpha = 0.6) +
-  geom_point(size = 2) +
-  scale_y_continuous(limits = c(1, 7)) +
-  labs(x = "", y = "", color = "") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
-```
-
 ## Age
 
 Bracket age values in groups of 5 or 10 starting from 18, plot mean scores and confidence intervals to explore any group differences and trends. No pre-registered hypothesis.
@@ -1103,4 +953,154 @@ ggplot(plot_df, aes(bracket_label, prop, fill = frequency)) +
     legend.key.size    = unit(0.9, "lines")
   ) +
   guides(fill = guide_legend(ncol = 1, reverse = TRUE))
+```
+
+## Psychotherapy
+
+Questions we asked in the survey:
+
+1.  How often have you attended psychotherapy or counselling sessions in your lifetime?
+    a.  Never
+    b.  Once or a few sessions only (1–5 sessions)
+    c.  A short course (roughly 6–20 sessions)
+    d.  An extended course (roughly 21–50 sessions)
+    e.  Long-term or ongoing therapy (more than 50 sessions)
+2.  Thinking about your overall experience of psychotherapy or counselling, how satisfied have you been with it?
+    a.  Very dissatisfied
+    b.  Dissatisfied
+    c.  Neutral
+    d.  Satisfied
+    e.  Very satisfied
+
+**Analysis:** plot scale scores across the levels of both Q1 and Q2, checking for any trends and substantial differences between levels. Exploratory analysis with no pre-registered hypothesis.
+
+```{r}
+plot_psy <- function(data, var, xlab) {
+  data |>
+    filter(!is.na({{ var }})) |>
+    pivot_longer(c(trust_score, distrust_score, rel_scept_score),
+                 names_to = "scale", values_to = "score") |>
+    group_by({{ var }}, scale) |>
+    summarise(mean_score = mean(score),
+              se = sd(score) / sqrt(n()),
+              n  = n(), .groups = "drop") |>
+    mutate(label = paste0({{ var }}, "\n(n=", n, ")")) |>
+    ggplot(aes(x = label, y = mean_score, colour = scale, group = scale)) +
+    geom_point(size = 2) +
+    geom_line(linewidth = 1) +
+    geom_errorbar(aes(ymin = mean_score - 1.96 * se,
+                      ymax = mean_score + 1.96 * se),
+                  width = 0.2, alpha = 0.6) +
+    scale_y_continuous(limits = c(1, 7)) +
+    labs(x = xlab, y = "Scale score", colour = "Scale") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+```
+
+**Lifetime psychotherapy exposure**
+
+```{r, fig.width=8, fig.height=3}
+psy_freq_levels <- c(
+  "Never",
+  "Once or a few sessions only (1–5 sessions)",
+  "A short course (roughly 6–20 sessions)",
+  "An extended course (roughly 21–50 sessions)",
+  "Long-term or ongoing therapy (more than 50 sessions)"
+)
+
+psy_freq_labels <- c(
+  "Never", "1-5 sessions", "6-20", "21-50", "50+"
+)
+
+psy_freq_data <- eval_data |>
+  mutate(
+    psy_freq = factor(`PSY-FREQ`, levels = psy_freq_levels,
+                      labels = psy_freq_labels),
+    psy_freq = fct_collapse(psy_freq, "21+" = c("21-50", "50+")),
+    psy_freq = factor(psy_freq,
+                      levels = c("Never", "1-5 sessions", "6-20", "21+"))
+  ) |>
+  filter(!is.na(psy_freq))
+
+# respondent-level n per exposure level (not per cell)
+freq_n <- count(psy_freq_data, psy_freq, name = "n_group", .drop = FALSE)
+
+plot_df <- psy_freq_data |>
+  pivot_longer(c(trust_score, distrust_score, rel_scept_score),
+               names_to = "scale", values_to = "score") |>
+  filter(!is.na(score)) |>
+  group_by(psy_freq, scale) |>
+  summarise(mean_score = mean(score),
+            se = sd(score) / sqrt(n()),
+            n_cell = n(), .groups = "drop") |>
+  mutate(crit = qt(0.975, n_cell - 1)) |>
+  left_join(freq_n, by = "psy_freq") |>
+  mutate(x_label = factor(
+    paste0(psy_freq, "\n(n=", n_group, ")"),
+    levels = paste0(freq_n$psy_freq, "\n(n=", freq_n$n_group, ")")))
+
+
+ggplot(plot_df, aes(x_label, mean_score, colour = scale, group = scale)) +
+  geom_line(linewidth = 1) +
+  geom_errorbar(aes(ymin = mean_score - crit * se,
+                    ymax = mean_score + crit * se),
+                width = 0.15, alpha = 0.7) +
+  geom_point(size = 3) +
+  coord_cartesian(ylim = c(3, 6.5)) +
+  scale_colour_manual(
+    name = "Factors",
+    breaks = c("trust_score", "distrust_score", "rel_scept_score"),
+    values = c(trust_score = "#009E73", distrust_score = "#D55E00",
+               rel_scept_score = "#E69F00"),
+    labels = c(trust_score = "Trust", distrust_score = "Distrust",
+               rel_scept_score = "Relational Scepticism")) +
+  labs(x = "No. of lifetime psychotherapy sessions",
+       y = "Factor score") +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.x = element_text(hjust = 0.5))
+```
+
+**Psychotherapy satisfaction**
+
+```{r}
+psy_sat_levels <- c(
+  "Very dissatisfied",
+  "Dissatisfied",
+  "Neutral",
+  "Satisfied",
+  "Very satisfied"
+)
+
+psy_sat_data <- eval_data |>
+  filter(!is.na(`PSY-SAT`)) |>
+  mutate(psy_sat = factor(`PSY-SAT`, levels=psy_sat_levels, ordered=TRUE)) |>
+  pivot_longer(cols = c(trust_score, distrust_score, rel_scept_score), 
+               names_to = "scale", values_to = "score") |>
+  group_by(psy_sat, scale) |>
+  summarise(mean_score = mean(score),
+            se = sd(score) / sqrt(n()),
+            n  = n(), .groups = "drop")
+```
+
+```{r}
+psy_sat_data |>
+  pivot_wider(
+    id_cols = c(psy_sat, n),
+    names_from = scale,
+    values_from = mean_score
+  ) |> kable(digits = 2)
+```
+
+```{r}
+psy_sat_data |> ggplot(aes(x = psy_sat, y = mean_score, color = scale, group = scale)) +
+  geom_line(linewidth = 1) +
+  geom_errorbar(aes(ymin = mean_score - 1.96 * se,
+                    ymax = mean_score + 1.96 * se),
+                width = 0.2, alpha = 0.6) +
+  geom_point(size = 2) +
+  scale_y_continuous(limits = c(1, 7)) +
+  labs(x = "", y = "", color = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
