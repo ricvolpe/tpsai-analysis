@@ -2378,6 +2378,7 @@ window.Quarto = {
   <li><a href="#loadings-plot" id="toc-loadings-plot" class="nav-link" data-scroll-target="#loadings-plot">Loadings Plot</a></li>
   </ul></li>
   <li><a href="#reliability" id="toc-reliability" class="nav-link" data-scroll-target="#reliability">Reliability</a></li>
+  <li><a href="#test-retest-reliability" id="toc-test-retest-reliability" class="nav-link" data-scroll-target="#test-retest-reliability">Test-Retest Reliability</a></li>
   <li><a href="#unexplained-variance" id="toc-unexplained-variance" class="nav-link" data-scroll-target="#unexplained-variance">Unexplained Variance</a></li>
   </ul>
 </nav>
@@ -3561,19 +3562,129 @@ window.Quarto = {
 </div>
 </div>
 </section>
+<section id="test-retest-reliability" class="level1">
+<h1>Test-Retest Reliability</h1>
+<p>We compute test-retest reliability using a follow-up sample of N = 100 respondents who re-completed TPSai one week after the CFA.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>retest_file_path <span class="ot">&lt;-</span> <span class="st">&quot;data/shared/TPSai+-+Prolific_Retest.csv&quot;</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>raw_retest_data  <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(retest_file_path, <span class="at">n_max =</span> <span class="dv">2</span>)</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>retest_colnames  <span class="ot">&lt;-</span> <span class="fu">names</span>(raw_retest_data)</span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>raw_retest_data  <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(retest_file_path, <span class="at">col_names =</span> retest_colnames, <span class="at">skip =</span> <span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>cols_tpsai_retest_raw <span class="ot">&lt;-</span> <span class="fu">paste0</span>(cols_tpsai_raw, <span class="st">&quot;_t2&quot;</span>)</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>cols_tpsai_retest <span class="ot">&lt;-</span> <span class="fu">paste0</span>(cols_tpsai, <span class="st">&quot;_t2&quot;</span>)</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>trust_items_retest <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;TPSAI_%02d_t2&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">15</span>)</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>rv_items_retest <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;TPSAI_%02d_t2&quot;</span>, <span class="dv">16</span><span class="sc">:</span><span class="dv">25</span>)</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>rs_items_retest  <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;TPSAI_%02d_t2&quot;</span>, <span class="dv">26</span><span class="sc">:</span><span class="dv">30</span>)</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>retest_data <span class="ot">&lt;-</span> raw_retest_data <span class="sc">|&gt;</span></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="fu">all_of</span>(<span class="fu">setNames</span>(cols_tpsai_raw, cols_tpsai))) <span class="sc">|&gt;</span></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="fu">all_of</span>(<span class="fu">setNames</span>(cols_tpsai_retest_raw, cols_tpsai_retest))) <span class="sc">|&gt;</span></span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">all_of</span>(cols_tpsai), <span class="sc">~</span> likert_levels[.x])) <span class="sc">|&gt;</span></span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">all_of</span>(cols_tpsai_retest), <span class="sc">~</span> likert_levels[.x])) <span class="sc">|&gt;</span></span>
+<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">trust_score =</span> <span class="fu">rowMeans</span>(<span class="fu">across</span>(<span class="fu">all_of</span>(trust_items))),</span>
+<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">distrust_score =</span> <span class="fu">rowMeans</span>(<span class="fu">across</span>(<span class="fu">all_of</span>(rv_items))),</span>
+<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">rel_scept_score =</span> <span class="fu">rowMeans</span>(<span class="fu">across</span>(<span class="fu">all_of</span>(rs_items))),</span>
+<span id="cb31-16"><a href="#cb31-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">trust_score_t2 =</span> <span class="fu">rowMeans</span>(<span class="fu">across</span>(<span class="fu">all_of</span>(trust_items_retest))),</span>
+<span id="cb31-17"><a href="#cb31-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">distrust_score_t2 =</span> <span class="fu">rowMeans</span>(<span class="fu">across</span>(<span class="fu">all_of</span>(rv_items_retest))),</span>
+<span id="cb31-18"><a href="#cb31-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">rel_scept_score_t2 =</span> <span class="fu">rowMeans</span>(<span class="fu">across</span>(<span class="fu">all_of</span>(rs_items_retest)))</span>
+<span id="cb31-19"><a href="#cb31-19" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb31-20"><a href="#cb31-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(</span>
+<span id="cb31-21"><a href="#cb31-21" aria-hidden="true" tabindex="-1"></a>    trust_score, distrust_score, rel_scept_score,</span>
+<span id="cb31-22"><a href="#cb31-22" aria-hidden="true" tabindex="-1"></a>    trust_score_t2, distrust_score_t2, rel_scept_score_t2</span>
+<span id="cb31-23"><a href="#cb31-23" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We evaluate test-retest reliability via:</p>
+<ul>
+<li><p><strong>Intraclass Correlation Coefficient (ICC)</strong>, two-way random effects with one rating per subject: the proportion of score variance attributable to stable between-person differences rather than change or error (&lt; .50 poor, .50–.75 moderate, .75–.90 good, &gt; .90 excellent). We use absolute-agreement ICC rather than Pearson because Pearson is insensitive to systematic drift: if all scores shift in the same direction between occasions, Pearson remains high while ICC falls.</p></li>
+<li><p><strong>Standard Error of Measurement (SEM)</strong> expresses measurement error in scale points, giving a confidence band around an individual score. An SE&lt; of 0.35 on a 7-point scale means an observed score of 4.2 is 4.2 ± 0.69 at 95% confidence.</p></li>
+<li><p><strong>Reliable Change Index (RCI)</strong>, the smallest change in an individual’s score distinguishable from measurement error.</p></li>
+<li><p><strong>ICC/ω</strong>, the proportion of <em>reliable</em> variance that is stable across occasions. A score cannot be more stable than it is reliable, so raw ICCs are not comparable across subscales of differing reliability. ICC ≈ ω indicates that no systematic variance is changing; ICC ≪ ω indicates reliable variance that moves between occasions, which is the situational signal.</p></li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>omegas <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">trust_score =</span> <span class="fl">0.96</span>, <span class="at">distrust_score =</span> <span class="fl">0.912</span>, <span class="at">rel_scept_score =</span> <span class="fl">0.859</span>)</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="fu">map_dfr</span>(<span class="fu">names</span>(omegas), \(s) {</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>  x   <span class="ot">&lt;-</span> retest_data[[s]]</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>  y   <span class="ot">&lt;-</span> retest_data[[<span class="fu">paste0</span>(s, <span class="st">&quot;_t2&quot;</span>)]]</span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>  icc <span class="ot">&lt;-</span> psych<span class="sc">::</span><span class="fu">ICC</span>(<span class="fu">cbind</span>(x, y))<span class="sc">$</span>results <span class="sc">|&gt;</span> <span class="fu">filter</span>(type <span class="sc">==</span> <span class="st">&quot;ICC2&quot;</span>)</span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>  sem <span class="ot">&lt;-</span> <span class="fu">sd</span>(x) <span class="sc">*</span> <span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">-</span> icc<span class="sc">$</span>ICC)</span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(</span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">scale     =</span> s,</span>
+<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">r         =</span> <span class="fu">cor</span>(x, y),</span>
+<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">ICC       =</span> icc<span class="sc">$</span>ICC,</span>
+<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">ci        =</span> <span class="fu">sprintf</span>(<span class="st">&quot;[%.3f, %.3f]&quot;</span>, icc<span class="sc">$</span><span class="st">`</span><span class="at">lower bound</span><span class="st">`</span>, icc<span class="sc">$</span><span class="st">`</span><span class="at">upper bound</span><span class="st">`</span>),</span>
+<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">icc_omega =</span> icc<span class="sc">$</span>ICC <span class="sc">/</span> omegas[[s]],</span>
+<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">SEm       =</span> sem,</span>
+<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">RCI       =</span> <span class="fl">2.77</span> <span class="sc">*</span> sem</span>
+<span id="cb32-17"><a href="#cb32-17" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb32-18"><a href="#cb32-18" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span></span>
+<span id="cb32-19"><a href="#cb32-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>(<span class="at">digits =</span> <span class="dv">3</span>,</span>
+<span id="cb32-20"><a href="#cb32-20" aria-hidden="true" tabindex="-1"></a>        <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Scale&quot;</span>, <span class="st">&quot;r&quot;</span>, <span class="st">&quot;ICC(2,1)&quot;</span>, <span class="st">&quot;95% CI&quot;</span>, <span class="st">&quot;ICC/ω&quot;</span>, <span class="st">&quot;SE~m~&quot;</span>, <span class="st">&quot;RCI&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Scale</th>
+<th style="text-align: right;">r</th>
+<th style="text-align: right;">ICC(2,1)</th>
+<th style="text-align: left;">95% CI</th>
+<th style="text-align: right;">ICC/ω</th>
+<th style="text-align: right;">SE<sub>m</sub></th>
+<th style="text-align: right;">RCI</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">trust_score</td>
+<td style="text-align: right;">0.908</td>
+<td style="text-align: right;">0.906</td>
+<td style="text-align: left;">[0.863, 0.935]</td>
+<td style="text-align: right;">0.943</td>
+<td style="text-align: right;">0.418</td>
+<td style="text-align: right;">1.158</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">distrust_score</td>
+<td style="text-align: right;">0.816</td>
+<td style="text-align: right;">0.817</td>
+<td style="text-align: left;">[0.741, 0.873]</td>
+<td style="text-align: right;">0.896</td>
+<td style="text-align: right;">0.509</td>
+<td style="text-align: right;">1.409</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">rel_scept_score</td>
+<td style="text-align: right;">0.762</td>
+<td style="text-align: right;">0.762</td>
+<td style="text-align: left;">[0.667, 0.833]</td>
+<td style="text-align: right;">0.887</td>
+<td style="text-align: right;">0.566</td>
+<td style="text-align: right;">1.568</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>The criteria pull against each other: a high ICC supports retest reliability but weakens the claim that TPSai is situational, since it indicates the score is largely a stable person characteristic. We interpret retest stability relative to the PTT-A short form <span class="citation" data-cites="scholz2025">(<a href="#ref-scholz2025" role="doc-biblioref">Scholz et al. 2025</a>)</span>, which reports r~TT~ = .71 over approximately one year (ω = .83). Because our interval is one week, a comparable or lower TPSai value would indicate <em>less</em> stability than an explicitly dispositional measure, supporting the situational interpretation; a substantially higher value is expected on interval alone and is therefore not by itself evidence of trait-likeness. We compare the ratio of stability to internal consistency rather than the raw coefficient, and use the Pearson correlation for this comparison since the published value is a Pearson r.</p>
+<p>Retest reliability and correlations with PTT-A and the ETMCQ jointly locate TPSai on the state–trait continuum, and neither is sufficient alone. Low retest stability together with low correlations with the predisposition measures would support the situational interpretation we intend. High stability together with high correlations would indicate that TPSai largely restates dispositional trust. High stability together with <em>low</em> correlations would indicate a <em>relational</em> measure: scores stable over a week not because the person is stable, but because their accumulated experience with a specific platform is, changing only after specific events such as a significant mistake by the platform or a news article. We report r² for the correlations with PTT-A and the ETMCQ as the upper bound on the dispositional account.</p>
+</section>
 <section id="unexplained-variance" class="level1">
 <h1>Unexplained Variance</h1>
 <p>For transparency in reporting, when fitting models is also interesting to ask what variance they do not capture. Since global indices can mask localised misfit, we can inspect the largest standardised residual correlations. While we do not plan to use the results of standardised residual correlations in any specific modelling decisions, we compute and report them to interpreter their relative fit.</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>resid_cor <span class="ot">&lt;-</span> <span class="fu">residuals</span>(m3, <span class="at">type =</span> <span class="st">&quot;cor&quot;</span>)<span class="sc">$</span>cov</span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>resid_cor[<span class="fu">upper.tri</span>(resid_cor, <span class="at">diag =</span> <span class="cn">TRUE</span>)] <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="fu">as.data.frame</span>(<span class="fu">as.table</span>(resid_cor)) <span class="sc">|&gt;</span></span>
-<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(Freq)) <span class="sc">|&gt;</span></span>
-<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(<span class="fu">abs</span>(Freq))) <span class="sc">|&gt;</span></span>
-<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">head</span>(<span class="dv">10</span>) <span class="sc">|&gt;</span></span>
-<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">transmute</span>(<span class="at">item_1 =</span> Var1, <span class="at">item_2 =</span> Var2, <span class="at">residual_r =</span> <span class="fu">round</span>(Freq, <span class="dv">3</span>)) <span class="sc">|&gt;</span></span>
-<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>resid_cor <span class="ot">&lt;-</span> <span class="fu">residuals</span>(m3, <span class="at">type =</span> <span class="st">&quot;cor&quot;</span>)<span class="sc">$</span>cov</span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>resid_cor[<span class="fu">upper.tri</span>(resid_cor, <span class="at">diag =</span> <span class="cn">TRUE</span>)] <span class="ot">&lt;-</span> <span class="cn">NA</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a><span class="fu">as.data.frame</span>(<span class="fu">as.table</span>(resid_cor)) <span class="sc">|&gt;</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(Freq)) <span class="sc">|&gt;</span></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(<span class="fu">abs</span>(Freq))) <span class="sc">|&gt;</span></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">head</span>(<span class="dv">10</span>) <span class="sc">|&gt;</span></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">transmute</span>(<span class="at">item_1 =</span> Var1, <span class="at">item_2 =</span> Var2, <span class="at">residual_r =</span> <span class="fu">round</span>(Freq, <span class="dv">3</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">kable</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <thead>
@@ -3647,6 +3758,9 @@ Boateng, Godfred O., Torsten B. Neilands, Edward A. Frongillo, Hugo R. Melgar-Qu
 </div>
 <div id="ref-cheung2002" class="csl-entry" role="listitem">
 Cheung, Gordon W., and Roger B. Rensvold. 2002. <span>“Evaluating Goodness-of-Fit Indexes for Testing Measurement Invariance.”</span> <em>Structural Equation Modeling: A Multidisciplinary Journal</em> 9 (2): 233–55. <a href="https://doi.org/10.1207/S15328007SEM0902_5">https://doi.org/10.1207/S15328007SEM0902_5</a>.
+</div>
+<div id="ref-scholz2025" class="csl-entry" role="listitem">
+Scholz, David D., Johannes Kraus, and Linda Miller. 2025. <span>“Measuring the Propensity to Trust in Automated Technology: Examining Similarities to Dispositional Trust in Other Humans and Validation of the PTT-a Scale.”</span> <em>International Journal of Human<span></span>Computer Interaction</em> 41 (2): 970–93. <a href="https://doi.org/10.1080/10447318.2024.2307691">https://doi.org/10.1080/10447318.2024.2307691</a>.
 </div>
 </div></section></div></main>
 <!-- /main column -->

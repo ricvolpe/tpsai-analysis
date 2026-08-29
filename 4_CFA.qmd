@@ -509,6 +509,80 @@ bind_rows(
 ) |> kable(col.names = c("Factor", "α.ord", "ω"))
 ```
 
+# Test-Retest Reliability
+
+We compute test-retest reliability using a follow-up sample of N = 100 respondents who re-completed TPSai one week after the CFA.
+
+```{r}
+retest_file_path <- "data/shared/TPSai+-+Prolific_Retest.csv"
+raw_retest_data  <- read_csv(retest_file_path, n_max = 2)
+retest_colnames  <- names(raw_retest_data)
+raw_retest_data  <- read_csv(retest_file_path, col_names = retest_colnames, skip = 2)
+```
+
+```{r}
+cols_tpsai_retest_raw <- paste0(cols_tpsai_raw, "_t2")
+cols_tpsai_retest <- paste0(cols_tpsai, "_t2")
+trust_items_retest <- sprintf("TPSAI_%02d_t2", 1:15)
+rv_items_retest <- sprintf("TPSAI_%02d_t2", 16:25)
+rs_items_retest  <- sprintf("TPSAI_%02d_t2", 26:30)
+
+retest_data <- raw_retest_data |>
+  rename(all_of(setNames(cols_tpsai_raw, cols_tpsai))) |>
+  rename(all_of(setNames(cols_tpsai_retest_raw, cols_tpsai_retest))) |>
+  mutate(across(all_of(cols_tpsai), ~ likert_levels[.x])) |>
+  mutate(across(all_of(cols_tpsai_retest), ~ likert_levels[.x])) |>
+  mutate(
+    trust_score = rowMeans(across(all_of(trust_items))),
+    distrust_score = rowMeans(across(all_of(rv_items))),
+    rel_scept_score = rowMeans(across(all_of(rs_items))),
+    trust_score_t2 = rowMeans(across(all_of(trust_items_retest))),
+    distrust_score_t2 = rowMeans(across(all_of(rv_items_retest))),
+    rel_scept_score_t2 = rowMeans(across(all_of(rs_items_retest)))
+  ) |>
+  select(
+    trust_score, distrust_score, rel_scept_score,
+    trust_score_t2, distrust_score_t2, rel_scept_score_t2
+  )
+```
+
+We evaluate test-retest reliability via:
+
+- **Intraclass Correlation Coefficient (ICC)**, two-way random effects with one rating per subject: the proportion of score variance attributable to stable between-person differences rather than change or error (\< .50 poor, .50–.75 moderate, .75–.90 good, \> .90 excellent). We use absolute-agreement ICC rather than Pearson because Pearson is insensitive to systematic drift: if all scores shift in the same direction between occasions, Pearson remains high while ICC falls.
+
+- **Standard Error of Measurement (SEM)** expresses measurement error in scale points, giving a confidence band around an individual score. An SE\< of 0.35 on a 7-point scale means an observed score of 4.2 is 4.2 ± 0.69 at 95% confidence.
+
+- **Reliable Change Index (RCI)**, the smallest change in an individual's score distinguishable from measurement error.
+
+- **ICC/ω**, the proportion of *reliable* variance that is stable across occasions. A score cannot be more stable than it is reliable, so raw ICCs are not comparable across subscales of differing reliability. ICC ≈ ω indicates that no systematic variance is changing; ICC ≪ ω indicates reliable variance that moves between occasions, which is the situational signal.
+
+```{r}
+omegas <- c(trust_score = 0.96, distrust_score = 0.912, rel_scept_score = 0.859)
+
+map_dfr(names(omegas), \(s) {
+  x   <- retest_data[[s]]
+  y   <- retest_data[[paste0(s, "_t2")]]
+  icc <- psych::ICC(cbind(x, y))$results |> filter(type == "ICC2")
+  sem <- sd(x) * sqrt(1 - icc$ICC)
+  
+  tibble(
+    scale     = s,
+    r         = cor(x, y),
+    ICC       = icc$ICC,
+    ci        = sprintf("[%.3f, %.3f]", icc$`lower bound`, icc$`upper bound`),
+    icc_omega = icc$ICC / omegas[[s]],
+    SEm       = sem,
+    RCI       = 2.77 * sem
+  )
+}) |>
+  kable(digits = 3,
+        col.names = c("Scale", "r", "ICC(2,1)", "95% CI", "ICC/ω", "SE~m~", "RCI"))
+```
+
+The criteria pull against each other: a high ICC supports retest reliability but weakens the claim that TPSai is situational, since it indicates the score is largely a stable person characteristic. We interpret retest stability relative to the PTT-A short form [@scholz2025], which reports r\~TT\~ = .71 over approximately one year (ω = .83). Because our interval is one week, a comparable or lower TPSai value would indicate *less* stability than an explicitly dispositional measure, supporting the situational interpretation; a substantially higher value is expected on interval alone and is therefore not by itself evidence of trait-likeness. We compare the ratio of stability to internal consistency rather than the raw coefficient, and use the Pearson correlation for this comparison since the published value is a Pearson r.
+
+Retest reliability and correlations with PTT-A and the ETMCQ jointly locate TPSai on the state–trait continuum, and neither is sufficient alone. Low retest stability together with low correlations with the predisposition measures would support the situational interpretation we intend. High stability together with high correlations would indicate that TPSai largely restates dispositional trust. High stability together with *low* correlations would indicate a *relational* measure: scores stable over a week not because the person is stable, but because their accumulated experience with a specific platform is, changing only after specific events such as a significant mistake by the platform or a news article. We report r² for the correlations with PTT-A and the ETMCQ as the upper bound on the dispositional account.
+
 # Unexplained Variance
 
 For transparency in reporting, when fitting models is also interesting to ask what variance they do not capture. Since global indices can mask localised misfit, we can inspect the largest standardised residual correlations. While we do not plan to use the results of standardised residual correlations in any specific modelling decisions, we compute and report them to interpreter their relative fit.
