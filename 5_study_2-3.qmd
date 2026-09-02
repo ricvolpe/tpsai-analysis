@@ -325,6 +325,7 @@ single_items_tpsai_cors$correlations |>
   filter(abs(distrust_level) > 0.4) |>
   kable(digits = 2)
 ```
+
 ### Single-item test-retest
 
 ```{r}
@@ -368,8 +369,6 @@ si_retest_cors$correlations |> kable(digits = 3)
 ```{r}
 si_retest_cors$type
 ```
-
-
 
 ## Related scales
 
@@ -610,7 +609,7 @@ si_compare_cors$type
 
 # Study 3: Exploratory Analysis
 
-# Frequency of use
+## Frequency of use
 
 **Measurement invariance:** we do not test measurement invariance across frequency-of-use groups because response distributions differ sufficiently between groups that several items have empty response categories. Respondents who never use generative AI for psychological support did not select the highest category on any of several trust items, nor the lowest categories on several distrust items, with the mirror pattern among frequent users. Threshold parameters cannot be estimated for empty categories, and the collapsing required to estimate them across all groups would reduce the seven-point scale to four categories. Invariance established on a four-category recode would not licence conclusions about the instrument as administered, and the collapsing would itself discard the group differences in response behaviour that motivate the comparison.
 
@@ -701,7 +700,7 @@ freq_scores |>
       "rel_scept_score" = "Relational Scepticism"
     )
   ) +
-  scale_y_continuous(limits = c(2.5, 6.5)) +
+  scale_y_continuous(limits = c(1, 7)) +
   labs(x = "Frequency of using generative AI for psychological support", y = "Factor score", color = "") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -865,7 +864,7 @@ ggplot(plot_df, aes(age_bracket_label, mean_score,
   geom_errorbar(aes(ymin = mean_score - crit * se,
                     ymax = mean_score + crit * se),
                 width = 0.2, alpha = 0.6) +
-  coord_cartesian(ylim = c(3, 7)) +
+  coord_cartesian(ylim = c(1, 7)) +
   scale_colour_manual(
     name = "Factors",
     breaks = c("trust_score", "distrust_score", "rel_scept_score"),
@@ -1047,7 +1046,7 @@ ggplot(plot_df, aes(x_label, mean_score, colour = scale, group = scale)) +
                     ymax = mean_score + crit * se),
                 width = 0.15, alpha = 0.7) +
   geom_point(size = 3) +
-  coord_cartesian(ylim = c(3, 6.5)) +
+  coord_cartesian(ylim = c(1, 7)) +
   scale_colour_manual(
     name = "Factors",
     breaks = c("trust_score", "distrust_score", "rel_scept_score"),
