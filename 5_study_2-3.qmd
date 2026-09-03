@@ -82,22 +82,22 @@ freq_levels <- c(
 cols_tpsai <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", cols_tpsai_raw)
 comp_items    <- sprintf("TPSAI_%02d", c(1:9))
 affect_items  <- sprintf("TPSAI_%02d", c(10:15))
-rv_items      <- sprintf("TPSAI_%02d", 16:25)
-rs_items      <- sprintf("TPSAI_%02d", 26:30)
+risk_items      <- sprintf("TPSAI_%02d", 16:25)
+relScept_items      <- sprintf("TPSAI_%02d", 26:30)
 
 item_map <- bind_rows(
-  tibble(item = comp_items,   top = "Trust",    sub = "Competence"),
-  tibble(item = affect_items, top = "Trust",    sub = "Affective"),
-  tibble(item = rv_items,     top = "Distrust", sub = "RiskVigilance"),
-  tibble(item = rs_items,     top = "Distrust", sub = "RelationalScepticism")
+  tibble(item = comp_items,   top = "Motivations",    sub = "Competence"),
+  tibble(item = affect_items, top = "Motivations",    sub = "Affective"),
+  tibble(item = risk_items,     top = "Concerns", sub = "RiskVigilance"),
+  tibble(item = relScept_items,     top = "Concerns", sub = "RelationalScepticism")
 ) |>
   arrange(item)
 
 item_map <- item_map |>
-  mutate(sub3 = if_else(top == "Trust", "Trust", sub))
+  mutate(sub3 = if_else(top == "Motivations", "Motivations", sub))
 
-trust_items    <- item_map |> filter(top == "Trust")    |> pull(item)
-distrust_items <- item_map |> filter(top == "Distrust") |> pull(item)
+trust_items    <- item_map |> filter(top == "Motivations")    |> pull(item)
+distrust_items <- item_map |> filter(top == "Concerns") |> pull(item)
 
 item_map |> count(top, sub) |> kable(col.names = c("Top-level", "Subfactor", "Items"))
 ```
@@ -114,9 +114,9 @@ eval_data <- raw_data |>
   mutate(across(all_of(ptt_items), ~ likert_levels_5[.x])) |>
   rename(all_of(setNames(cols_tpsai_raw, cols_tpsai))) |>
   mutate(
-    trust_score = rowMeans(across(all_of(trust_items))),
-    distrust_score = rowMeans(across(all_of(rv_items))),
-    rel_scept_score = rowMeans(across(all_of(rs_items)))
+    motivations_score = rowMeans(across(all_of(trust_items))),
+    concerns_score = rowMeans(across(all_of(risk_items))),
+    rel_scept_score = rowMeans(across(all_of(relScept_items)))
   ) |>
   mutate(
     frequency_level = factor(FREQ, levels = freq_levels, ordered = TRUE),
@@ -127,7 +127,7 @@ eval_data <- raw_data |>
   mutate(platform = 
            coalesce(`PLAT-PSY_11_TEXT`, `PLAT-PSY`, `PLAT-GEN_11_TEXT`, `PLAT-GEN`)) |>
   select(
-    all_of(cols_tpsai), trust_score, distrust_score, rel_scept_score,
+    all_of(cols_tpsai), motivations_score, concerns_score, rel_scept_score,
     frequency_level, trust_level, distrust_level, 
     all_of(ptt_items), all_of(etmcq_items), all_of(gaid_items),
     `PSY-FREQ`, `PSY-SAT`, platform, Age)
@@ -167,13 +167,13 @@ eval_data |>
   pivot_longer(everything(), names_to = "item", values_to = "response") |>
   mutate(
     factor = case_when(
-      item %in% trust_items ~ "Trust",
-      item %in% rv_items ~ "Distrust",
-      item %in% rs_items ~ "Relational Scepticism",
+      item %in% trust_items ~ "Motivations",
+      item %in% risk_items ~ "Concerns",
+      item %in% relScept_items ~ "Relational Scepticism",
       .default = NA_character_
     )
   ) |>
-  mutate(factor = factor(factor, levels = c("Trust", "Distrust", "Relational Scepticism"))) |>
+  mutate(factor = factor(factor, levels = c("Motivations", "Concerns", "Relational Scepticism"))) |>
   ggplot(aes(x = item, y = response, fill = factor)) +
   geom_boxplot(alpha = 0.7) +
   scale_y_continuous(limits = c(1, 7), breaks = 1:7) +
@@ -188,15 +188,15 @@ eval_data |>
 ```{r, fig.height=3, fig.width=8}
 eval_data |>
   pivot_longer(
-    cols = c(trust_score, distrust_score, rel_scept_score),
+    cols = c(motivations_score, concerns_score, rel_scept_score),
     names_to = "factor",
     values_to = "score"
   ) |>
   mutate(
     factor = factor(
       factor,
-      levels = c("trust_score", "distrust_score", "rel_scept_score"),
-      labels = c("Trust", "Distrust", "Relational Scepticism")
+      levels = c("motivations_score", "concerns_score", "rel_scept_score"),
+      labels = c("Motivations", "Concerns", "Relational Scepticism")
     )
   ) |>
   ggplot(aes(x = score, fill = factor)) +
@@ -213,7 +213,7 @@ eval_data |>
 ```{r}
 factors_data <- eval_data |>
   select(
-    trust_score, distrust_score, rel_scept_score
+    motivations_score, concerns_score, rel_scept_score
   )
 
 cor(factors_data)
@@ -280,7 +280,7 @@ overalls_plot
 ```{r}
 single_items_data <- eval_data |>
   transmute(
-    trust_score, distrust_score, rel_scept_score,
+    motivations_score, concerns_score, rel_scept_score,
     trust_level    = ordered(trust_level,    levels = 1:7),
     distrust_level = ordered(distrust_level, levels = 1:7)
   ) |>
@@ -429,11 +429,11 @@ We use the PTT-A short form [@scholz2025] which comprises of the following six *
 
 **Assumed relationship with TPSai**
 
-- Trust should positively relate with Trust
+- Motivations should positively relate with Trust
 
-- Mistrust should positively relate with Distrust and Relational Scepticism
+- Mistrust should positively relate with Concerns and Relational Scepticism
 
-- Credulity should negatively positively with Distrust
+- Credulity should negatively positively with Concerns
 
 ### GAID
 
@@ -463,11 +463,11 @@ We use the PTT-A short form [@scholz2025] which comprises of the following six *
 
 **Assumed relationship with TPSai:**
 
-- Overall dependency should positively relate with Trust and negatively with Distrust
+- Overall dependency should positively relate with Motivations and negatively with Concerns
 
-- Negative consequences should positively relate with Distrust and Relational Scepticism
+- Negative consequences should positively relate with Concerns and Relational Scepticism
 
-- Cognitive Preoccupation should positive relate with Distrust
+- Cognitive Preoccupation should positive relate with Concerns
 
 - Withdrawal should negatively relate with Relational Scepticism
 
@@ -525,14 +525,14 @@ comparison_scores <- comparison_scores |>
   mutate(GAID_Overall = rowMeans(across(starts_with("GAID_"))))
 
 sec3 <- eval_data |>
-  select(trust_score, distrust_score, rel_scept_score) |>
+  select(motivations_score, concerns_score, rel_scept_score) |>
   bind_cols(comparison_scores)
 ```
 
 Correlations with TPSai scale scores are estimated with Pearson coefficients. Unlike the concurrent validity analyses, no polyserial or polychoric estimation is required here, as both sides of each correlation are multi-item composites with approximately continuous distributions rather than single ordinal items.
 
 ```{r}
-tpsai_cols <- c("trust_score", "distrust_score", "rel_scept_score")
+tpsai_cols <- c("motivations_score", "concerns_score", "rel_scept_score")
 other_cols <- setdiff(names(sec3), tpsai_cols)
 
 ct <- psych::corr.test(sec3, adjust = "none")
@@ -565,7 +565,7 @@ omega_for <- function(data, map, fname) {
 }
 
 omegas <- c(
-  trust_score = 0.96, distrust_score = 0.912, rel_scept_score = 0.859,  # ω from CFA (m3)
+  motivations_score = 0.96, concerns_score = 0.912, rel_scept_score = 0.859,  # ω from CFA (m3)
   map_dbl(setdiff(other_cols, "GAID_Overall"),
           \(f) omega_for(eval_data, instrument_map, f)) |>
     setNames(setdiff(other_cols, "GAID_Overall"))
@@ -627,12 +627,12 @@ eval_data |>
   kable(col.names = c("Frequency group", "Domain", "Unused rating", "Items"))
 ```
 
-*Pre-registration*: we are expecting scale scores to have moderately correlations (0.3 - 0.7) with frequency of use, suggesting some that TPSai scales have some predictive power over how often people use generative AI for psychological support. More specifically, trust should have be positively correlated while distrust subscale (Distrust and relational scepticism) should be negatively correlated.
+*Pre-registration*: we are expecting scale scores to have moderately correlations (0.3 - 0.7) with frequency of use, suggesting some that TPSai scales have some predictive power over how often people use generative AI for psychological support. More specifically, trust should have be positively correlated while distrust subscale (Concerns and relational scepticism) should be negatively correlated.
 
 ```{r}
 freq_data <- eval_data |>
   transmute(
-    trust_score, distrust_score, rel_scept_score,
+    motivations_score, concerns_score, rel_scept_score,
     frequency_level = ordered(frequency_level, levels = 1:5)
   ) |>
   as.data.frame()
@@ -667,7 +667,7 @@ freq_short <- c(
 
 freq_scores <- eval_data |>
   mutate(frequency_level = factor(frequency_level, levels = 1:5, labels = freq_short)) |>
-  pivot_longer(cols = c(trust_score, distrust_score, rel_scept_score), 
+  pivot_longer(cols = c(motivations_score, concerns_score, rel_scept_score), 
                names_to = "scale", values_to = "score") |>
   group_by(frequency_level, scale) |>
   summarise(mean_score = mean(score),
@@ -689,14 +689,14 @@ freq_scores |>
   geom_point(size = 3) +
   scale_colour_manual(
     name   = "Factors",
-    breaks = c("trust_score", "distrust_score", "rel_scept_score"),
+    breaks = c("motivations_score", "concerns_score", "rel_scept_score"),
     values = c(
-      "trust_score" = "#009E73",
-      "distrust_score" = "#D55E00", "rel_scept_score" = "#E69F00"
+      "motivations_score" = "#009E73",
+      "concerns_score" = "#D55E00", "rel_scept_score" = "#E69F00"
     ),
     labels = c(
-      "trust_score" = "Trust",
-      "distrust_score" = "Distrust",
+      "motivations_score" = "Motivations",
+      "concerns_score" = "Concerns",
       "rel_scept_score" = "Relational Scepticism"
     )
   ) +
@@ -713,7 +713,7 @@ freq_scores_wide <- freq_scores |>
     names_from = scale,
     values_from = mean_score
   ) |>
-  mutate(gap = trust_score - distrust_score)
+  mutate(gap = motivations_score - concerns_score)
 
 freq_scores_wide |> kable(digits = 2)
 ```
@@ -721,8 +721,8 @@ freq_scores_wide |> kable(digits = 2)
 ```{r}
 freq_scores_wide <- freq_scores_wide |>
   mutate(
-    trust_delta = trust_score - lag(trust_score),
-    rv_delta = distrust_score - lag(distrust_score),
+    trust_delta = motivations_score - lag(motivations_score),
+    rv_delta = concerns_score - lag(concerns_score),
     rs_delta = rel_scept_score - lag(rel_scept_score)
   )
 
@@ -743,8 +743,8 @@ bind_rows(
     select(comparison, trust_delta, rv_delta, rs_delta),
   tibble(
     comparison = "Daily vs Never",
-    trust_delta = freq_scores_wide$trust_score[5] - freq_scores_wide$trust_score[1],
-    rv_delta = freq_scores_wide$distrust_score[5] - freq_scores_wide$distrust_score[1],
+    trust_delta = freq_scores_wide$motivations_score[5] - freq_scores_wide$motivations_score[1],
+    rv_delta = freq_scores_wide$concerns_score[5] - freq_scores_wide$concerns_score[1],
     rs_delta = freq_scores_wide$rel_scept_score[5] - freq_scores_wide$rel_scept_score[1]
   )
 ) |> kable(digits = 2,)
@@ -764,8 +764,8 @@ eval_data |>
   filter(platform %in% common_platforms) |>
   group_by(platform) |>
   summarise(n = n(), 
-            trust = mean(trust_score),
-            risk_vigilance = mean(distrust_score),
+            trust = mean(motivations_score),
+            risk_vigilance = mean(concerns_score),
             relational_scepticism = mean(rel_scept_score),
             ) |>
   arrange(desc(n)) |>
@@ -784,15 +784,15 @@ plot_data <- eval_data |>
   filter(platform %in% common_platforms) |>
   add_count(platform) |>
   pivot_longer(
-    cols      = c(trust_score, distrust_score, rel_scept_score),
+    cols      = c(motivations_score, concerns_score, rel_scept_score),
     names_to  = "scale",
     values_to = "score"
   ) |>
   mutate(
     scale = factor(
       scale,
-      levels = c("rel_scept_score", "distrust_score", "trust_score"),
-      labels = c("Relational scepticism", "Distrust", "Trust")
+      levels = c("rel_scept_score", "concerns_score", "motivations_score"),
+      labels = c("Relational scepticism", "Concerns", "Motivations")
     )
   )
 
@@ -844,7 +844,7 @@ dat <- eval_data |>
 bracket_n <- count(dat, age_bracket, name = "n_bracket", .drop = FALSE)
 
 plot_df <- dat |>
-  pivot_longer(c(trust_score, distrust_score, rel_scept_score),
+  pivot_longer(c(motivations_score, concerns_score, rel_scept_score),
                names_to = "scale", values_to = "score") |>
   filter(!is.na(score)) |>
   group_by(age_bracket, scale) |>
@@ -867,10 +867,10 @@ ggplot(plot_df, aes(age_bracket_label, mean_score,
   coord_cartesian(ylim = c(1, 7)) +
   scale_colour_manual(
     name = "Factors",
-    breaks = c("trust_score", "distrust_score", "rel_scept_score"),
-    values = c(trust_score = "#009E73", distrust_score = "#D55E00",
+    breaks = c("motivations_score", "concerns_score", "rel_scept_score"),
+    values = c(motivations_score = "#009E73", concerns_score = "#D55E00",
                rel_scept_score = "#E69F00"),
-    labels = c(trust_score = "Trust", distrust_score = "Distrust",
+    labels = c(motivations_score = "Motivations", concerns_score = "Concerns",
                rel_scept_score = "Relational Scepticism")) +
   labs(x = "Age bracket", y = "Factor score") +
   theme_minimal()
@@ -977,7 +977,7 @@ Questions we asked in the survey:
 plot_psy <- function(data, var, xlab) {
   data |>
     filter(!is.na({{ var }})) |>
-    pivot_longer(c(trust_score, distrust_score, rel_scept_score),
+    pivot_longer(c(motivations_score, concerns_score, rel_scept_score),
                  names_to = "scale", values_to = "score") |>
     group_by({{ var }}, scale) |>
     summarise(mean_score = mean(score),
@@ -1026,7 +1026,7 @@ psy_freq_data <- eval_data |>
 freq_n <- count(psy_freq_data, psy_freq, name = "n_group", .drop = FALSE)
 
 plot_df <- psy_freq_data |>
-  pivot_longer(c(trust_score, distrust_score, rel_scept_score),
+  pivot_longer(c(motivations_score, concerns_score, rel_scept_score),
                names_to = "scale", values_to = "score") |>
   filter(!is.na(score)) |>
   group_by(psy_freq, scale) |>
@@ -1049,10 +1049,10 @@ ggplot(plot_df, aes(x_label, mean_score, colour = scale, group = scale)) +
   coord_cartesian(ylim = c(1, 7)) +
   scale_colour_manual(
     name = "Factors",
-    breaks = c("trust_score", "distrust_score", "rel_scept_score"),
-    values = c(trust_score = "#009E73", distrust_score = "#D55E00",
+    breaks = c("motivations_score", "concerns_score", "rel_scept_score"),
+    values = c(motivations_score = "#009E73", concerns_score = "#D55E00",
                rel_scept_score = "#E69F00"),
-    labels = c(trust_score = "Trust", distrust_score = "Distrust",
+    labels = c(motivations_score = "Motivations", concerns_score = "Concerns",
                rel_scept_score = "Relational Scepticism")) +
   labs(x = "No. of lifetime psychotherapy sessions",
        y = "Factor score") +
@@ -1074,7 +1074,7 @@ psy_sat_levels <- c(
 psy_sat_data <- eval_data |>
   filter(!is.na(`PSY-SAT`)) |>
   mutate(psy_sat = factor(`PSY-SAT`, levels=psy_sat_levels, ordered=TRUE)) |>
-  pivot_longer(cols = c(trust_score, distrust_score, rel_scept_score), 
+  pivot_longer(cols = c(motivations_score, concerns_score, rel_scept_score), 
                names_to = "scale", values_to = "score") |>
   group_by(psy_sat, scale) |>
   summarise(mean_score = mean(score),

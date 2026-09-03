@@ -87,12 +87,12 @@ cols_tpsai      <- gsub("^TPSAI_(\\d)$", "TPSAI_0\\1", cols_tpsai_raw)
 
 *Which structure (i.e. set of factors) best fit our data?*
 
-EFA suggested items first clearly divide between Trust and Distrust items and then Distrust items divide into Risk Vigilance and Relational Scepticism items. During EFA, Trust showed some indications of dividing into Competence and Affective Trust but the separation was not clean. However, since our EFA sample we have replaced three trust-coded items to attempt at producing a clearer competence / affective trust separation. Thus given the results of our EFA we evaluate the following models
+EFA suggested items first clearly divide between Motivations and Concerns items and then Concerns items divide into Risk Vigilance and Relational Scepticism items. During EFA, Motivations showed some indications of dividing into Competence and Affective Trust but the separation was not clean. However, since our EFA sample we have replaced three trust-coded items to attempt at producing a clearer competence / affective trust separation. Thus given the results of our EFA we evaluate the following models
 
 1.  Unidimensional
-2.  Trust / Distrust
-3.  Trust/ Distrust/ Relational Scepticism
-4.  Competence / Affective Trust / Distrust / Relational Scepticism.
+2.  Motivations / Concerns
+3.  Motivations / Concerns/ Relational Scepticism
+4.  Competence / Affective Trust / Concerns / Relational Scepticism.
 
 We also decided to test an additional model, that is a bi-factor model with a single general factor loading on all items, plus a specific factor loading on distrust items, constrained orthogonal to the general factor (which we call `m1b`). This model tests whether the items hypothesised to measure Distrust require covariance beyond that accounted for by a single general dimension. If `m1b` fits comparably to `m2`, the two-factor structure cannot be distinguished from a single bipolar dimension. Because item content (trust and distrust) and item framing (motivation-worded vs concern-worded) are aligned in this set, the specific factor is not identified with respect to which of these it reflects, and we report it without substantive interpretation.
 
@@ -103,18 +103,18 @@ rv_items      <- sprintf("TPSAI_%02d", 16:25)
 rs_items      <- sprintf("TPSAI_%02d", 26:30)
 
 item_map <- bind_rows(
-  tibble(item = comp_items,   top = "Trust",    sub = "Competence"),
-  tibble(item = affect_items, top = "Trust",    sub = "Affective"),
-  tibble(item = rv_items,     top = "Distrust", sub = "RiskVigilance"),
-  tibble(item = rs_items,     top = "Distrust", sub = "RelationalScepticism")
+  tibble(item = comp_items,   top = "Motivations",    sub = "Competence"),
+  tibble(item = affect_items, top = "Motivations",    sub = "Affective"),
+  tibble(item = rv_items,     top = "Concerns", sub = "RiskVigilance"),
+  tibble(item = rs_items,     top = "Concerns", sub = "RelationalScepticism")
 ) |>
   arrange(item)
 
 item_map <- item_map |>
-  mutate(sub3 = if_else(top == "Trust", "Trust", sub))
+  mutate(sub3 = if_else(top == "Motivations", "Motivations", sub))
 
-trust_items    <- item_map |> filter(top == "Trust")    |> pull(item)
-distrust_items <- item_map |> filter(top == "Distrust") |> pull(item)
+trust_items    <- item_map |> filter(top == "Motivations")    |> pull(item)
+distrust_items <- item_map |> filter(top == "Concerns") |> pull(item)
 
 item_map |> count(top, sub) |> kable(col.names = c("Top-level", "Subfactor", "Items"))
 ```
@@ -332,7 +332,7 @@ fit_table(list(m1, m1b, m2, m3, m4), c("M1", "M1b", "M2", "M3", "M4")) |> kable(
 
 ```{r}
 comparisons <- bind_rows(
-  compare_adjacent(m1, m2, c("M1", "M2"), "Trust", "Distrust"),
+  compare_adjacent(m1, m2, c("M1", "M2"), "Motivations", "Concerns"),
   compare_adjacent(m2, m3, c("M2", "M3"), "RiskVigilance", "RelationalScepticism"),
   compare_adjacent(m3, m4, c("M3", "M4"), "Competence", "Affective")
 )
@@ -492,12 +492,12 @@ All coefficients are based on **ordinal indicators** (7-point Likert scale), so 
 ```{r}
 bind_rows(
   tibble(
-    Factor = "Trust",
-    `α.ord` = round(rel_m3["alpha.ord", "Trust"], 3),
-    `ω` = round(rel_m3["omega", "Trust"], 3)
+    Factor = "Motivations",
+    `α.ord` = round(rel_m3["alpha.ord", "Motivations"], 3),
+    `ω` = round(rel_m3["omega", "Motivations"], 3)
   ),
   tibble(
-    Factor = "RiskVigilance",
+    Factor = "Concerns",
     `α.ord` = round(rel_m3["alpha.ord", "RiskVigilance"], 3),
     `ω` = round(rel_m3["omega", "RiskVigilance"], 3)
   ),
@@ -533,16 +533,16 @@ retest_data <- raw_retest_data |>
   mutate(across(all_of(cols_tpsai), ~ likert_levels[.x])) |>
   mutate(across(all_of(cols_tpsai_retest), ~ likert_levels[.x])) |>
   mutate(
-    trust_score = rowMeans(across(all_of(trust_items))),
-    distrust_score = rowMeans(across(all_of(rv_items))),
+    motivations_score = rowMeans(across(all_of(trust_items))),
+    concerns_score = rowMeans(across(all_of(rv_items))),
     rel_scept_score = rowMeans(across(all_of(rs_items))),
-    trust_score_t2 = rowMeans(across(all_of(trust_items_retest))),
-    distrust_score_t2 = rowMeans(across(all_of(rv_items_retest))),
+    motivations_score_t2 = rowMeans(across(all_of(trust_items_retest))),
+    concerns_score_t2 = rowMeans(across(all_of(rv_items_retest))),
     rel_scept_score_t2 = rowMeans(across(all_of(rs_items_retest)))
   ) |>
   select(
-    trust_score, distrust_score, rel_scept_score,
-    trust_score_t2, distrust_score_t2, rel_scept_score_t2
+    motivations_score, concerns_score, rel_scept_score,
+    motivations_score_t2, concerns_score_t2, rel_scept_score_t2
   )
 ```
 
@@ -557,7 +557,7 @@ We evaluate test-retest reliability via:
 - **ICC/ω**, the proportion of *reliable* variance that is stable across occasions. A score cannot be more stable than it is reliable, so raw ICCs are not comparable across subscales of differing reliability. ICC ≈ ω indicates that no systematic variance is changing; ICC ≪ ω indicates reliable variance that moves between occasions, which is the situational signal.
 
 ```{r}
-omegas <- c(trust_score = 0.96, distrust_score = 0.912, rel_scept_score = 0.859)
+omegas <- c(motivations_score = 0.96, concerns_score = 0.912, rel_scept_score = 0.859)
 
 map_dfr(names(omegas), \(s) {
   x   <- retest_data[[s]]
